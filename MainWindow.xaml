@@ -183,8 +183,13 @@
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- Bildirimleri sessize al -->
                             <Button x:Name="MuteBtn" Style="{StaticResource HeaderIconBtn}" Click="Mute_Click"
-                                    ToolTip="Bildirimleri sessize al" Margin="0,0,10,0">
+                                    ToolTip="Bildirimleri sessize al" Margin="0,0,6,0">
                                 <TextBlock x:Name="MuteGlyph" Text="&#xEA8F;"/>
+                            </Button>
+                            <!-- Ayarlar penceresini açar -->
+                            <Button Style="{StaticResource HeaderIconBtn}" Click="OpenAppSettings_Click"
+                                    ToolTip="Ayarlar" Margin="0,0,10,0">
+                                <TextBlock Text="&#xE713;"/>
                             </Button>
                             <TextBlock x:Name="ClockText" FontSize="13" FontWeight="SemiBold" Foreground="#E6FFFFFF"
                                        VerticalAlignment="Center"/>
