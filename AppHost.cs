@@ -30,6 +30,9 @@ public sealed class AppHost
     public BluetoothService Bluetooth { get; }
     public NotificationService Notifications { get; } = new();
     public UpdateService Updates { get; } = new();
+    public WeatherService Weather { get; }
+    private readonly DispatcherTimer _weatherTimer;
+    private string _weatherKey = "";
     public ObservableCollection<NotifItem> NotifItems { get; } = new();
     public int Unread { get; private set; }
     public bool NotificationAccess { get; private set; } = true;
@@ -41,13 +44,17 @@ public sealed class AppHost
         _ui = ui;
         Media = new MediaService(ui);
         Bluetooth = new BluetoothService(ui);
+        Weather = new WeatherService(Settings);
+        _weatherTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMinutes(30) };
+        _weatherTimer.Tick += async (_, _) => await Weather.RefreshAsync();
 
         // Güncelleme denetimi: açılıştan 30 sn sonra, sonra saatte bir
         _updateTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(30) };
         _updateTimer.Tick += async (_, _) =>
         {
             _updateTimer.Interval = TimeSpan.FromHours(1);
-            if (Settings.AutoUpdate) await Updates.CheckAsync(install: true);
+            // Arka plandaki otomatik denetim yalnızca kurulu kopyayı günceller (geliştirme kopyası etkilenmez)
+            if (Settings.AutoUpdate) await Updates.CheckAsync(install: Updates.IsInstalled);
         };
     }
 
@@ -89,6 +96,12 @@ public sealed class AppHost
         NotificationsChanged?.Invoke();
 
         _updateTimer.Start();
+        _weatherKey = WeatherKey();
+        if (Settings.WeatherEnabled)
+        {
+            _weatherTimer.Start();
+            await Weather.RefreshAsync();
+        }
     }
 
     public void Peek(PeekItem item)
@@ -133,7 +146,25 @@ public sealed class AppHost
         UpdateTooltip();
         RebuildWindows();
         if (Settings.AutoUpdate && !_updateTimer.IsEnabled) _updateTimer.Start();
+
+        // Hava durumu: açıldıysa ya da konum değiştiyse hemen yenile
+        string key = WeatherKey();
+        if (key != _weatherKey)
+        {
+            _weatherKey = key;
+            if (Settings.WeatherEnabled)
+            {
+                _weatherTimer.Start();
+                _ = Weather.RefreshAsync();
+            }
+            else
+            {
+                _weatherTimer.Stop();
+            }
+        }
     }
+
+    private string WeatherKey() => $"{Settings.WeatherEnabled}|{Settings.WeatherLat}|{Settings.WeatherLon}";
 
     private void ApplyHotkey()
     {

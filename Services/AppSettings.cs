@@ -16,6 +16,19 @@ public sealed class AppSettings
     /// <summary>GitHub'a yeni sürüm gelince arka planda indirip kur.</summary>
     public bool AutoUpdate { get; set; } = true;
 
+    public const string ShapeNotch = "Notch";
+    public const string ShapeIsland = "Island";
+    /// <summary>"Notch": ekranın üstüne yapışık çentik · "Island": iPhone'daki gibi yüzen oval hap.</summary>
+    public string Shape { get; set; } = ShapeNotch;
+    /// <summary>Kompakt çentiğin ortasında saat (iPhone gibi).</summary>
+    public bool ShowClock { get; set; } = true;
+
+    public bool WeatherEnabled { get; set; } = true;
+    /// <summary>Gösterilen konum adı (ör. "Ankara, Türkiye" ya da "Konumum").</summary>
+    public string WeatherCity { get; set; } = "";
+    public double? WeatherLat { get; set; }
+    public double? WeatherLon { get; set; }
+
     public string FontFamily { get; set; } = DefaultFont;
     public double Scale { get; set; } = 1.0;
     /// <summary>Çentik yukarı gizli mi (Ctrl+Win ile değişir).</summary>
@@ -50,6 +63,7 @@ public sealed class AppSettings
                     s.Scale = Math.Clamp(s.Scale, MinScale, MaxScale);
                     if (string.IsNullOrWhiteSpace(s.FontFamily)) s.FontFamily = DefaultFont;
                     if (string.IsNullOrWhiteSpace(s.Display)) s.Display = DisplayPrimary;
+                    if (s.Shape != ShapeIsland) s.Shape = ShapeNotch;
                     return s;
                 }
             }
@@ -80,6 +94,10 @@ public sealed class AppSettings
         HideInFullscreen = d.HideInFullscreen;
         Display = d.Display;
         AutoUpdate = d.AutoUpdate;
+        Shape = d.Shape;
+        ShowClock = d.ShowClock;
+        WeatherEnabled = d.WeatherEnabled;
+        // Seçilen şehir sıfırlanmaz: kullanıcıyı yeniden aratmamak için korunur
         Save();
     }
 }

@@ -91,7 +91,77 @@ public partial class SettingsWindow : Window
         HotkeyToggle.IsChecked = _settings.HotkeyEnabled;
         FullscreenToggle.IsChecked = _settings.HideInFullscreen;
         AutoUpdateToggle.IsChecked = _settings.AutoUpdate;
+        ShapeNotchBtn.IsChecked = _settings.Shape != AppSettings.ShapeIsland;
+        ShapeIslandBtn.IsChecked = _settings.Shape == AppSettings.ShapeIsland;
+        WeatherToggle.IsChecked = _settings.WeatherEnabled;
+        ClockToggle.IsChecked = _settings.ShowClock;
+        WeatherLocationBox.IsEnabled = _settings.WeatherEnabled;
+        WeatherLocationBox.Opacity = _settings.WeatherEnabled ? 1 : 0.45;
+        WeatherLocText.Text = _settings.WeatherLat is null
+            ? "Seçilmedi: bir şehir arayın ya da konumunuzu kullanın"
+            : $"Seçili: {(_settings.WeatherCity.Length > 0 ? _settings.WeatherCity : "Konumum")}";
         _loading = false;
+    }
+
+    // ---------------------------------------------------------------- görünüm stili
+
+    private void Shape_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _settings.Shape = sender == ShapeIslandBtn ? AppSettings.ShapeIsland : AppSettings.ShapeNotch;
+        Save();
+    }
+
+    // ---------------------------------------------------------------- hava durumu konumu
+
+    private void CitySearch_TextChanged(object sender, TextChangedEventArgs e)
+        => CityPlaceholder.Visibility = CitySearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    private void CitySearch_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter) { e.Handled = true; Search_Click(sender, e); }
+    }
+
+    private async void Search_Click(object sender, RoutedEventArgs e)
+    {
+        string q = CitySearch.Text.Trim();
+        if (q.Length < 2) return;
+        WeatherLocText.Text = "Aranıyor…";
+        var results = await WeatherService.SearchAsync(q);
+        if (results.Count == 0)
+        {
+            WeatherLocText.Text = "Sonuç bulunamadı (internet bağlantısını ya da yazımı kontrol edin)";
+            CityResults.Visibility = Visibility.Collapsed;
+            return;
+        }
+        WeatherLocText.Text = "Listeden şehrinizi seçin";
+        _loading = true;
+        CityResults.ItemsSource = results;
+        CityResults.SelectedItem = null;
+        _loading = false;
+        CityResults.Visibility = Visibility.Visible;
+        CityResults.IsDropDownOpen = true;
+    }
+
+    private void CityResults_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || CityResults.SelectedItem is not WeatherService.Place p) return;
+        _settings.WeatherLat = Math.Round(p.Lat, 3);
+        _settings.WeatherLon = Math.Round(p.Lon, 3);
+        _settings.WeatherCity = p.Label;
+        CityResults.Visibility = Visibility.Collapsed;
+        CitySearch.Text = "";
+        Save();
+        LoadValues();
+    }
+
+    private async void UseLocation_Click(object sender, RoutedEventArgs e)
+    {
+        WeatherLocText.Text = "Konum alınıyor…";
+        if (!await _host.Weather.TryUseDeviceLocationAsync())
+            WeatherLocText.Text = "Konum alınamadı: Ayarlar › Gizlilik › Konum'da masaüstü uygulamalarına izin verin ya da şehir arayın";
+        else
+            LoadValues();
     }
 
     private void FontCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -125,7 +195,10 @@ public partial class SettingsWindow : Window
         else if (sender == HotkeyToggle) _settings.HotkeyEnabled = HotkeyToggle.IsChecked == true;
         else if (sender == FullscreenToggle) _settings.HideInFullscreen = FullscreenToggle.IsChecked == true;
         else if (sender == AutoUpdateToggle) _settings.AutoUpdate = AutoUpdateToggle.IsChecked == true;
+        else if (sender == WeatherToggle) _settings.WeatherEnabled = WeatherToggle.IsChecked == true;
+        else if (sender == ClockToggle) _settings.ShowClock = ClockToggle.IsChecked == true;
         Save();
+        LoadValues();
     }
 
     private void Save()
@@ -145,7 +218,7 @@ public partial class SettingsWindow : Window
             : _updates.Message;
 
         string detail = _updates.LastCheck is { } t ? $"Son denetim: {t:HH:mm}" : "Henüz denetlenmedi";
-        if (!_updates.IsInstalled) detail += "  ·  Bu kopya kurulumla yüklenmediği için otomatik kurulmaz";
+        if (!_updates.IsInstalled) detail += "  ·  Geliştirme kopyası: arka planda kurulmaz, 'Güncelle' ile kurulur";
         UpdateDetail.Text = detail;
 
         bool busy = s is UpdateService.UpdateState.Checking or UpdateService.UpdateState.Downloading

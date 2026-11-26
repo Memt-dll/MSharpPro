@@ -109,8 +109,22 @@
                         <Rectangle x:Name="Eq3" Style="{StaticResource EqBar}"/>
                         <Rectangle x:Name="Eq4" Style="{StaticResource EqBar}"/>
                     </StackPanel>
-                    <Ellipse x:Name="CompactDot" Width="7" Height="7" HorizontalAlignment="Right"
-                             VerticalAlignment="Center" Fill="{StaticResource AccentGradient}" Visibility="Collapsed"/>
+                    <!-- Ortada saat (iPhone gibi) -->
+                    <TextBlock x:Name="CompactClock" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="13" FontWeight="SemiBold" Foreground="White"/>
+
+                    <!-- Sağ taraf (müzik çalmıyorken): okunmamış bildirim noktası + hava durumu -->
+                    <StackPanel x:Name="CompactRight" Orientation="Horizontal" HorizontalAlignment="Right"
+                                VerticalAlignment="Center">
+                        <Ellipse x:Name="CompactDot" Width="7" Height="7" VerticalAlignment="Center"
+                                 Fill="{StaticResource AccentGradient}" Visibility="Collapsed"/>
+                        <StackPanel x:Name="CompactWeather" Orientation="Horizontal" Visibility="Collapsed" Margin="8,0,0,0">
+                            <Image x:Name="CompactWeatherIcon" Width="16" Height="16" VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock x:Name="CompactWeatherTemp" FontSize="12" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" Margin="4,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Grid>
 
                 <!-- ============ KISA BİLDİRİM (peek) ============ -->
@@ -149,7 +163,7 @@
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock x:Name="ClockText" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
-                            <Image Source="Assets/icon-64.png" Width="18" Height="18" Margin="8,0,0,0"
+                            <Image Source="Assets/icon-64.png" Width="18" Height="18" Margin="7,0,0,0"
                                    RenderOptions.BitmapScalingMode="HighQuality" ToolTip="M#Pro"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal">
@@ -177,6 +191,13 @@
                                         <TextBlock x:Name="NotifBadgeText" FontSize="9.5" Foreground="White" FontWeight="SemiBold"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="TabWeather" Style="{StaticResource TabBtn}" Checked="Tab_Checked">
+                                <StackPanel Orientation="Horizontal">
+                                    <Image x:Name="TabWeatherIcon" Width="13" Height="13" VerticalAlignment="Center"
+                                           Margin="0,0,5,0"/>
+                                    <TextBlock Text="Hava"/>
                                 </StackPanel>
                             </RadioButton>
                         </StackPanel>
@@ -303,6 +324,105 @@
                                     <TextBlock Text="Bluetooth ayarları"/>
                                 </StackPanel>
                             </Button>
+                        </Grid>
+
+                        <!-- Hava durumu -->
+                        <Grid x:Name="WeatherPanel" Visibility="Collapsed">
+                            <Grid x:Name="WeatherContent">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="172"/>
+                                    <ColumnDefinition/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Şu an: hava durumuna göre renklenen kart -->
+                                <Border x:Name="WeatherCard" CornerRadius="18" Padding="14,10,12,10">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE707;" FontFamily="{StaticResource Icons}" FontSize="9.5"
+                                                       VerticalAlignment="Center" Margin="0,1,4,0"/>
+                                            <TextBlock x:Name="WeatherCity" FontSize="11.5" FontWeight="SemiBold" MaxWidth="128"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <Grid Grid.Row="1" VerticalAlignment="Center">
+                                            <TextBlock x:Name="WeatherTemp" FontSize="44" FontWeight="Light"
+                                                       VerticalAlignment="Center" Margin="-2,-6,0,-4"/>
+                                            <Image x:Name="WeatherIcon" Width="46" Height="46" HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </Grid>
+                                        <StackPanel Grid.Row="2">
+                                            <TextBlock x:Name="WeatherCondition" FontSize="12.5" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="WeatherHiLo" FontSize="11" Foreground="#D9FFFFFF" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Önümüzdeki günler: gün · simge · en düşük · aralık çubuğu · en yüksek -->
+                                <Grid Grid.Column="1" Margin="14,0,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <ItemsControl x:Name="WeatherDays" VerticalAlignment="Center">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Height="27">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="44"/>
+                                                        <ColumnDefinition Width="26"/>
+                                                        <ColumnDefinition Width="28"/>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition Width="28"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"/>
+                                                    <Image Grid.Column="1" Source="{Binding Icon}" Width="18" Height="18"
+                                                           HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="2" FontSize="12" Foreground="#80FFFFFF"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <Run Text="{Binding Min, Mode=OneWay}"/><Run Text="°"/>
+                                                    </TextBlock>
+                                                    <Grid Grid.Column="3" Height="4" Margin="8,0" VerticalAlignment="Center">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="{Binding BarLeft}"/>
+                                                            <ColumnDefinition Width="{Binding BarFill}"/>
+                                                            <ColumnDefinition Width="{Binding BarRight}"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Grid.ColumnSpan="3" Background="#1FFFFFFF" CornerRadius="2"/>
+                                                        <Border Grid.Column="1" CornerRadius="2">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                    <GradientStop Color="#5AB8FF" Offset="0"/>
+                                                                    <GradientStop Color="#FFD27A" Offset="1"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                    </Grid>
+                                                    <TextBlock Grid.Column="4" FontSize="12" FontWeight="SemiBold"
+                                                               HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <Run Text="{Binding Max, Mode=OneWay}"/><Run Text="°"/>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="WeatherDetail" Grid.Row="1" Style="{StaticResource Caption}" FontSize="10.5"
+                                               HorizontalAlignment="Right"/>
+                                </Grid>
+                            </Grid>
+
+                            <StackPanel x:Name="WeatherEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Visibility="Collapsed">
+                                <Image x:Name="WeatherEmptyIcon" Width="40" Height="40" HorizontalAlignment="Center"/>
+                                <TextBlock x:Name="WeatherProblem" Text="Ayarlar'dan şehrinizi seçin" Foreground="#99FFFFFF"
+                                           FontSize="12" Margin="0,6,0,8" HorizontalAlignment="Center"/>
+                                <Button Style="{StaticResource PillBtn}" Content="Ayarları aç" HorizontalAlignment="Center"
+                                        Click="OpenAppSettings_Click"/>
+                            </StackPanel>
                         </Grid>
 
                         <!-- Bildirimler -->

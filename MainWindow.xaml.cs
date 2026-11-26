@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -23,7 +23,7 @@ public partial class MainWindow : Window
 
     private readonly Queue<PeekItem> _peekQueue = new();
     private readonly DispatcherTimer _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer;
-    private readonly DispatcherTimer _rehideTimer, _revealCheckTimer;
+    private readonly DispatcherTimer _rehideTimer, _revealCheckTimer, _clockTimer;
     private readonly Storyboard? _eq;
     private bool _eqRunning;
     private Mode _mode = Mode.Compact;
@@ -87,6 +87,10 @@ public partial class MainWindow : Window
         _progressTimer = MakeTimer(1000, UpdateProgress, repeat: true);
         _eq = (Storyboard)Resources["EqStoryboard"];
 
+        // Saat: her dakika başında bir kez güncellenir (saniyelik zamanlayıcı yok = CPU tasarrufu)
+        _clockTimer = new DispatcherTimer(DispatcherPriority.Background);
+        _clockTimer.Tick += (_, _) => UpdateClock();
+
         Island.MouseEnter += (_, _) => { _leaveTimer.Stop(); _hoverTimer.Start(); };
         Island.MouseLeave += (_, _) =>
         {
@@ -117,8 +121,12 @@ public partial class MainWindow : Window
         _media.TimelineChanged += UpdateProgress;
         _host.NotificationsChanged += UpdateNotifUi;
         _host.Bluetooth.Devices.CollectionChanged += OnBtChanged;
+        _host.Weather.Changed += UpdateWeather;
 
         ApplyFont();
+        ApplyShape();
+        UpdateWeather();
+        UpdateClock();
         SetMode(Mode.Compact);
         UpdateMedia();
         UpdateNotifUi();
@@ -135,7 +143,8 @@ public partial class MainWindow : Window
         _media.TimelineChanged -= UpdateProgress;
         _host.NotificationsChanged -= UpdateNotifUi;
         _host.Bluetooth.Devices.CollectionChanged -= OnBtChanged;
-        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer })
+        _host.Weather.Changed -= UpdateWeather;
+        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer, _clockTimer })
             t.Stop();
         _eq?.Stop(this);
         BtList.ItemsSource = null;
@@ -157,6 +166,11 @@ public partial class MainWindow : Window
         if (_closed) return;
         ApplyLayout();
         ApplyFont();
+        ApplyShape();
+        UpdateWeather();
+        bool clockWas = CompactClock.Visibility == Visibility.Visible;
+        UpdateClock();
+        if (clockWas != _settings.ShowClock && _mode == Mode.Compact) SetMode(Mode.Compact); // genişlik
 
         if (!_settings.HideInFullscreen && _hiddenForFullscreen)
         {
@@ -171,6 +185,44 @@ public partial class MainWindow : Window
             if (_settings.Hidden && _mode == Mode.Expanded) SetMode(Mode.Compact);
         }
         ApplySlide();
+    }
+
+    private bool IsIsland => _settings.Shape == AppSettings.ShapeIsland;
+    private string _appliedShape = "";
+
+    private static readonly Brush NotchBorder = Frozen(new LinearGradientBrush(new GradientStopCollection
+    {
+        new(Color.FromArgb(0x00, 0, 0, 0), 0), new(Color.FromArgb(0x22, 0x5A, 0xB8, 0xFF), 0.6),
+        new(Color.FromArgb(0x66, 0x8A, 0x7C, 0xFF), 1)
+    }, 90));
+    // Ada: iPhone'daki gibi neredeyse görünmez ince kenar (koyu duvar kağıdında da seçilsin diye)
+    private static readonly Brush IslandBorder = Frozen(new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)));
+
+    private static Brush Frozen(Brush b) { b.Freeze(); return b; }
+
+    /// <summary>Çentik (üste yapışık) ya da Dynamic Island (yüzen hap) görünümünü uygular.</summary>
+    private void ApplyShape()
+    {
+        if (_appliedShape == _settings.Shape) return;
+        _appliedShape = _settings.Shape;
+        Island.Margin = IsIsland ? new Thickness(0, 8, 0, 0) : new Thickness(0);
+        Island.BorderThickness = IsIsland ? new Thickness(1) : new Thickness(1, 0, 1, 1);
+        Island.BorderBrush = IsIsland ? IslandBorder : NotchBorder;
+        // iPhone'daki ada saf siyahtır
+        if (IsIsland) Island.Background = Brushes.Black;
+        else Island.ClearValue(System.Windows.Controls.Border.BackgroundProperty);
+        if (IsLoaded) SetMode(_mode);
+    }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        CompactClock.Text = now.ToString("HH:mm");
+        CompactClock.Visibility = Vis(_settings.ShowClock);
+        if (_mode == Mode.Expanded) ClockText.Text = now.ToString("HH:mm");
+        // Bir sonraki dakikanın başında tekrar
+        _clockTimer.Interval = TimeSpan.FromSeconds(60 - now.Second) - TimeSpan.FromMilliseconds(now.Millisecond) + TimeSpan.FromMilliseconds(50);
+        _clockTimer.Start();
     }
 
     private void ApplyLayout()
@@ -217,12 +269,15 @@ public partial class MainWindow : Window
         {
             Mode.Expanded => (450, 236, 30, ExpandedView),
             Mode.Peek => (384, 66, 24, PeekView),
-            _ => (_media.HasMedia ? 236 : 170, 32, 16, (FrameworkElement)CompactView)
+            _ => (_media.HasMedia ? 236 : _settings.ShowClock ? 196 : 170, 32, 16, (FrameworkElement)CompactView)
         };
+        // Dynamic Island: tamamen yuvarlak hap (kompakt ve kısa bildirimde yarıçap = yüksekliğin yarısı),
+        // açık panelde iPhone'daki gibi çok yuvarlak köşeler
+        if (IsIsland) r = m == Mode.Expanded ? 42 : h / 2;
 
         if (m == Mode.Expanded)
         {
-            ClockText.Text = DateTime.Now.ToString("ddd HH:mm");
+            ClockText.Text = DateTime.Now.ToString("HH:mm");
             if (TabNotif.IsChecked == true) _host.MarkRead();
             UpdateProgress();
             _progressTimer.Start();
@@ -233,7 +288,7 @@ public partial class MainWindow : Window
         }
 
         if (m != Mode.Compact) Native.BringToTop(_hwnd);
-        Island.CornerRadius = new CornerRadius(0, 0, r, r);
+        Island.CornerRadius = IsIsland ? new CornerRadius(r) : new CornerRadius(0, 0, r, r);
         AnimateSize(w, h);
         ShowView(view);
         UpdateAmbient();
@@ -282,7 +337,7 @@ public partial class MainWindow : Window
         if (up != _slidUp)
         {
             _slidUp = up;
-            var anim = new DoubleAnimation(up ? -48 : 0, TimeSpan.FromMilliseconds(up ? 260 : 300))
+            var anim = new DoubleAnimation(up ? -60 : 0, TimeSpan.FromMilliseconds(up ? 260 : 300))
             {
                 EasingFunction = up
                     ? new CubicEase { EasingMode = EasingMode.EaseIn }
@@ -378,8 +433,10 @@ public partial class MainWindow : Window
     private void UpdateEqualizer()
     {
         bool run = _mode == Mode.Compact && _media.HasMedia && _media.IsPlaying && !_hiddenForFullscreen && !_slidUp;
-        EqPanel.Visibility = Vis(_media.HasMedia && _media.IsPlaying);
-        CompactDot.Visibility = Vis(_host.Unread > 0 && EqPanel.Visibility != Visibility.Visible);
+        bool eq = _media.HasMedia && _media.IsPlaying;
+        EqPanel.Visibility = Vis(eq);
+        CompactRight.Visibility = Vis(!eq);
+        CompactDot.Visibility = Vis(_host.Unread > 0);
         if (run == _eqRunning || _eq == null) return;
         _eqRunning = run;
         if (run) _eq.Begin(this, true);
@@ -489,6 +546,49 @@ public partial class MainWindow : Window
         await _media.SeekAsync(_pendingSeek);
     }
 
+    // ---------------------------------------------------------------- hava durumu
+
+    private void UpdateWeather()
+    {
+        if (_closed) return;
+        var w = _host.Weather;
+        bool on = _settings.WeatherEnabled;
+        bool has = on && w.HasData;
+
+        TabWeather.Visibility = Vis(on);
+        if (!on && TabWeather.IsChecked == true) TabMedia.IsChecked = true;
+
+        CompactWeather.Visibility = Vis(has);
+        if (has)
+        {
+            CompactWeatherIcon.Source = w.Icon;
+            CompactWeatherTemp.Text = $"{w.Temp}°";
+            TabWeatherIcon.Source = w.Icon;
+
+            WeatherCard.Background = w.CardBrush;
+            WeatherIcon.Source = w.Icon;
+            WeatherTemp.Text = $"{w.Temp}°";
+            WeatherCondition.Text = w.Condition;
+            WeatherHiLo.Text = $"En yüksek {w.High}°  ·  En düşük {w.Low}°";
+            string city = string.IsNullOrEmpty(_settings.WeatherCity) ? "Konumum" : _settings.WeatherCity;
+            int comma = city.IndexOf(',');
+            WeatherCity.Text = comma > 0 ? city[..comma] : city;   // kartta yalnızca şehir adı
+            WeatherDetail.Text = $"Hissedilen {w.Feels}°  ·  Nem %{w.Humidity}  ·  Rüzgâr {w.Wind} km/s";
+            WeatherDays.ItemsSource = w.Days;
+        }
+        else
+        {
+            TabWeatherIcon.Source = WeatherIcons.Get(WeatherKind.PartlySun);
+            WeatherEmptyIcon.Source = WeatherIcons.Get(WeatherKind.PartlySun);
+        }
+        WeatherContent.Visibility = Vis(has);
+        WeatherEmpty.Visibility = Vis(on && !has);
+        WeatherProblem.Text = w.Problem ?? "Hava durumu yükleniyor…";
+        UpdateEqualizer();
+    }
+
+    private void OpenAppSettings_Click(object sender, RoutedEventArgs e) => _host.OpenSettings();
+
     // ---------------------------------------------------------------- bildirimler
 
     private void UpdateNotifUi()
@@ -510,6 +610,7 @@ public partial class MainWindow : Window
         MediaPanel.Visibility = Vis(TabMedia.IsChecked == true);
         BtPanel.Visibility = Vis(TabBt.IsChecked == true);
         NotifPanel.Visibility = Vis(TabNotif.IsChecked == true);
+        WeatherPanel.Visibility = Vis(TabWeather.IsChecked == true);
         if (TabNotif.IsChecked == true) _host.MarkRead();
     }
 

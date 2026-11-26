@@ -144,10 +144,12 @@ public sealed class UpdateService
         Installing?.Invoke(Latest);
         await Task.Delay(2500); // çentikteki "güncelleniyor" bildirimi görünsün
 
-        // Kurulu kopya sessizce güncellenir ve kurulum bitince uygulama yeniden açılır.
-        // Geliştirme kopyasında normal (görünür) kurulum açılır.
-        string args = IsInstalled ? "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" : "";
-        Process.Start(new ProcessStartInfo(file, args) { UseShellExecute = true });
+        // Her zaman sessiz kurulum: "İleri / İleri" ekranları çıkmaz. Kurulum açık uygulamayı kapatır,
+        // dosyaları değiştirir ve bitince uygulamayı kendisi yeniden açar (installer'daki [Run] / WizardSilent).
+        Process.Start(new ProcessStartInfo(file, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CLOSEAPPLICATIONS")
+        {
+            UseShellExecute = true
+        });
         System.Windows.Application.Current.Shutdown();
     }
 
