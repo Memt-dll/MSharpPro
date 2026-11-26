@@ -23,6 +23,29 @@ public sealed class NotificationService
 
     public event Action<NotifItem>? Received;
 
+    /// <summary>
+    /// Yeni Teams kurulu ama Windows'a hiç bildirim göndermemişse true.
+    /// Bu durumda Teams'in "Bildirim stili" ayarı "Teams yerleşik"tir: bildirimler Windows'a
+    /// ulaşmaz ve hiçbir uygulama okuyamaz. Kullanıcıya ayarı değiştirmesi söylenir.
+    /// (Bir uygulama ilk Windows bildirimini gösterince Windows onun için bu kayıt anahtarını oluşturur.)
+    /// </summary>
+    public static bool TeamsUsesBuiltInNotifications()
+    {
+        if (Demo.On) return false;
+        try
+        {
+            string teamsData = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Packages", "MSTeams_8wekyb3d8bbwe");
+            if (!System.IO.Directory.Exists(teamsData)) return false; // yeni Teams kurulu değil
+
+            using var settings = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Notifications\Settings");
+            if (settings == null) return false;
+            return !settings.GetSubKeyNames().Any(k => k.StartsWith("MSTeams_", StringComparison.OrdinalIgnoreCase));
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> StartAsync()
     {
         if (Demo.On) return true;

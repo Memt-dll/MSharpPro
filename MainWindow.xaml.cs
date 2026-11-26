@@ -620,7 +620,12 @@ public partial class MainWindow : Window
         BtPanel.Visibility = Vis(TabBt.IsChecked == true);
         NotifPanel.Visibility = Vis(TabNotif.IsChecked == true);
         WeatherPanel.Visibility = Vis(TabWeather.IsChecked == true);
-        if (TabNotif.IsChecked == true) _host.MarkRead();
+        if (TabNotif.IsChecked == true)
+        {
+            _host.MarkRead();
+            // Sekme açılınca kontrol edilir (bir kayıt defteri okuması): kullanıcı Teams ayarını değiştirince ipucu kaybolur
+            TeamsHint.Visibility = Vis(_host.NotificationAccess && NotificationService.TeamsUsesBuiltInNotifications());
+        }
     }
 
     private async void PlayPause_Click(object sender, RoutedEventArgs e) => await _media.PlayPauseAsync();

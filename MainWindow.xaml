@@ -489,6 +489,15 @@
                                 <Button Style="{StaticResource PillBtn}" Content="Ayarları aç"
                                         HorizontalAlignment="Center" Click="OpenNotifSettings_Click"/>
                             </StackPanel>
+                            <!-- Teams bildirimleri Windows'a gelmiyorsa ipucu -->
+                            <StackPanel x:Name="TeamsHint" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left"
+                                        VerticalAlignment="Center" Margin="0,4,90,0" Visibility="Collapsed">
+                                <TextBlock Text="&#xE946;" FontFamily="{StaticResource Icons}" FontSize="11"
+                                           Foreground="{StaticResource AccentBrush}" VerticalAlignment="Top" Margin="0,1,6,0"/>
+                                <TextBlock FontSize="10.5" Foreground="#99FFFFFF" TextWrapping="Wrap" MaxWidth="300">
+                                    Teams bildirimleri için: Teams › Ayarlar › Bildirimler › Bildirim stili › <Run FontWeight="SemiBold" Foreground="White">Windows</Run>
+                                </TextBlock>
+                            </StackPanel>
                             <Button x:Name="ClearBtn" Grid.Row="1" Style="{StaticResource PillBtn}"
                                     HorizontalAlignment="Right" Margin="0,4,0,0" Click="ClearNotifs_Click">
                                 <StackPanel Orientation="Horizontal">
