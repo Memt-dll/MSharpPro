@@ -1,0 +1,151 @@
+<Application x:Class="MSharpPro.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- İkondaki neon mavi → mor renkler -->
+        <Color x:Key="AccentBlue">#5AB8FF</Color>
+        <Color x:Key="AccentViolet">#8A7CFF</Color>
+        <SolidColorBrush x:Key="AccentBrush" Color="#6FB4FF"/>
+        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{StaticResource AccentBlue}" Offset="0"/>
+            <GradientStop Color="{StaticResource AccentViolet}" Offset="1"/>
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccentGradientV" StartPoint="0,1" EndPoint="0,0">
+            <GradientStop Color="{StaticResource AccentBlue}" Offset="0"/>
+            <GradientStop Color="{StaticResource AccentViolet}" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- Beyaz daire içinde siyah oynat butonu -->
+        <Style x:Key="PlayBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="FontFamily" Value="{StaticResource Icons}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="White" CornerRadius="20" RenderTransformOrigin="0.5,0.5">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E6F0FF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.92" ScaleY="0.92"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Listelerde fareyle üzerine gelince hafif vurgu -->
+        <Style x:Key="RowBorder" TargetType="Border">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="6,5"/>
+            <Setter Property="Margin" Value="-6,0,-6,2"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#14FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Yuvarlak ikon butonu (oynat / ileri / geri) -->
+        <Style x:Key="IconBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontFamily" Value="{StaticResource Icons}"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#26FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#40FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Küçük hap şeklinde metin butonu -->
+        <Style x:Key="PillBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#CCFFFFFF"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="#1AFFFFFF" CornerRadius="10" Padding="10,3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#33FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Sekme butonu -->
+        <Style x:Key="TabBtn" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#80FFFFFF"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="GroupName" Value="tabs"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bd" Background="Transparent" CornerRadius="11" Padding="11,3" Margin="0,0,4,0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2EFFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Application.Resources>
+</Application>

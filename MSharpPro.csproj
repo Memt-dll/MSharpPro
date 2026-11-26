@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MSharpPro</AssemblyName>
+    <RootNamespace>MSharpPro</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+
+    <Product>M#Pro</Product>
+    <AssemblyTitle>M#Pro</AssemblyTitle>
+    <Description>Windows için hafif çentik (dynamic island) uygulaması</Description>
+    <Version>1.0.0</Version>
+
+    <!-- Düşük RAM için: workstation GC, eşzamanlı (arka plan) GC kapalı -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>false</TieredPGO>
+    <SatelliteResourceLanguages>tr</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon-64.png" />
+    <None Remove="Assets\icon-source.webp;Assets\icon-1024.png" />
+  </ItemGroup>
+
+</Project>
