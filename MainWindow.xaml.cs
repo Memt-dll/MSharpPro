@@ -1,51 +1,76 @@
-﻿using System.Collections.ObjectModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
-using Microsoft.Win32;
 using MSharpPro.Services;
 
 namespace MSharpPro;
 
+/// <summary>
+/// Bir ekrandaki çentik. Servisler <see cref="AppHost"/>'ta tek kez çalışır; bu pencere yalnızca gösterir.
+/// </summary>
 public partial class MainWindow : Window
 {
     private enum Mode { Compact, Peek, Expanded }
-    private sealed record PeekItem(string Title, string Text, string Glyph, ImageSource? Image);
 
-    private readonly MediaService _media = new();
-    private readonly BluetoothService _bt;
-    private readonly NotificationService _notifService = new();
-    private readonly ObservableCollection<NotifItem> _notifs = new();
+    private readonly AppHost _host;
+    private readonly AppSettings _settings;
+    private readonly MediaService _media;
+    private MonitorInfo _monitor;
+
     private readonly Queue<PeekItem> _peekQueue = new();
-
     private readonly DispatcherTimer _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer;
     private readonly DispatcherTimer _rehideTimer, _revealCheckTimer;
-    private Storyboard? _eq;
+    private readonly Storyboard? _eq;
     private bool _eqRunning;
     private Mode _mode = Mode.Compact;
     private bool _hiddenForFullscreen;
-    private int _unread;
     private IntPtr _hwnd;
+    private bool _closed;
 
-    private readonly AppSettings _settings = AppSettings.Load();
-    private readonly CtrlWinHook _hotkey = new();
-    private TrayIcon? _tray;
-    private SettingsWindow? _settingsWindow;
     /// <summary>Gizli moddayken fare üst kenara gelip çentiği indirdi mi.</summary>
     private bool _revealed;
     private bool _slidUp;
+    private bool _wasHidden;
+
+    // İleri / geri sarma
+    private bool _seeking;
+    private TimeSpan _seekDuration;
+    private TimeSpan _pendingSeek;
+    private DateTime _pendingSeekUntil;
 
     // Ölçeklenmemiş pencere boyutu
     private const double BaseWidth = 480, BaseHeight = 270;
 
-    public MainWindow()
+    public MainWindow(AppHost host, MonitorInfo monitor)
     {
+        _host = host;
+        _settings = host.Settings;
+        _media = host.Media;
+        _monitor = monitor;
+        _wasHidden = _settings.Hidden;
+
         InitializeComponent();
 
+        BtList.ItemsSource = host.Bluetooth.Devices;
+        NotifList.ItemsSource = host.NotifItems;
+
+        _hoverTimer = MakeTimer(140, () => { if (Island.IsMouseOver) SetMode(Mode.Expanded); });
+        _leaveTimer = MakeTimer(350, () =>
+        {
+            if (Island.IsMouseOver || _seeking) return;
+            if (_peekQueue.Count > 0) ShowPeekNow(_peekQueue.Dequeue());
+            else SetMode(Mode.Compact);
+        });
+        _peekTimer = MakeTimer(3500, () =>
+        {
+            if (_mode != Mode.Peek) return;
+            if (_peekQueue.Count > 0) ShowPeekNow(_peekQueue.Dequeue());
+            else SetMode(Mode.Compact);
+        });
         _rehideTimer = MakeTimer(700, () =>
         {
             if (Island.IsMouseOver || HotZone.IsMouseOver || _mode != Mode.Compact) return;
@@ -57,38 +82,10 @@ public partial class MainWindow : Window
             if (Island.IsMouseOver) _hoverTimer.Start();
             else _rehideTimer.Start();
         });
-
-        HotZone.MouseEnter += (_, _) => Reveal();
-        Island.MouseRightButtonUp += (_, e) => { e.Handled = true; ShowMenu(); };
-
-        _hotkey.Triggered += () => Dispatcher.InvokeAsync(ToggleHidden);
-        _settings.Changed += ApplySettings;
-        if (Application.Current is { } app)
-            app.Exit += (_, _) => { _hotkey.Dispose(); _tray?.Dispose(); };
-
-        _bt = new BluetoothService(Dispatcher);
-        BtList.ItemsSource = _bt.Devices;
-        NotifList.ItemsSource = _notifs;
-        _bt.Devices.CollectionChanged += (_, _) => BtEmpty.Visibility = Vis(_bt.Devices.Count == 0);
-
-        _hoverTimer = MakeTimer(140, () => { if (Island.IsMouseOver) SetMode(Mode.Expanded); });
-        _leaveTimer = MakeTimer(350, () =>
-        {
-            if (Island.IsMouseOver) return;
-            if (_peekQueue.Count > 0) ShowPeekNow(_peekQueue.Dequeue());
-            else SetMode(Mode.Compact);
-        });
-        _peekTimer = MakeTimer(3500, () =>
-        {
-            if (_mode != Mode.Peek) return;
-            if (_peekQueue.Count > 0) ShowPeekNow(_peekQueue.Dequeue());
-            else SetMode(Mode.Compact);
-        });
         _trimTimer = MakeTimer(3000, () => { if (_mode == Mode.Compact) Native.TrimWorkingSet(); });
         _fullscreenTimer = MakeTimer(2000, CheckFullscreen, repeat: true);
         _progressTimer = MakeTimer(1000, UpdateProgress, repeat: true);
         _eq = (Storyboard)Resources["EqStoryboard"];
-        ProgressTrack.SizeChanged += (_, _) => UpdateProgress();
 
         Island.MouseEnter += (_, _) => { _leaveTimer.Stop(); _hoverTimer.Start(); };
         Island.MouseLeave += (_, _) =>
@@ -97,51 +94,118 @@ public partial class MainWindow : Window
             if (_mode == Mode.Expanded) _leaveTimer.Start();
             else if (_settings.Hidden && _revealed) _rehideTimer.Start();
         };
+        Island.MouseRightButtonUp += (_, e) => { e.Handled = true; _host.ShowMenu(); };
+        HotZone.MouseEnter += (_, _) => Reveal();
+
+        HookSeekBar();
 
         SourceInitialized += (_, _) =>
         {
             _hwnd = new WindowInteropHelper(this).Handle;
             Native.MakeToolWindow(_hwnd);
+            ApplyLayout(); // gösterilmeden önce doğru ekrana yerleş
         };
-        Loaded += async (_, _) => await InitAsync();
-        SystemEvents.DisplaySettingsChanged += (_, _) => Dispatcher.InvokeAsync(PositionWindow);
+        DpiChanged += (_, _) => Dispatcher.InvokeAsync(PositionWindow, DispatcherPriority.Background);
+        Loaded += (_, _) => Init();
+        Closed += (_, _) => Detach();
     }
 
-    private async Task InitAsync()
+    private void Init()
     {
-        ApplySettings();
+        _settings.Changed += OnSettingsChanged;
+        _media.Changed += UpdateMedia;
+        _media.TimelineChanged += UpdateProgress;
+        _host.NotificationsChanged += UpdateNotifUi;
+        _host.Bluetooth.Devices.CollectionChanged += OnBtChanged;
+
+        ApplyFont();
         SetMode(Mode.Compact);
-        _fullscreenTimer.Start();
-
-        _tray = new TrayIcon("M#Pro");
-        _tray.LeftClick += OpenSettings;
-        _tray.RightClick += ShowMenu;
-
-        _media.Changed += () => Dispatcher.InvokeAsync(UpdateMedia);
-        _media.TrackChanged += () => Dispatcher.InvokeAsync(() =>
-            Peek(_media.Title, _media.Artist, "", _media.Art));
-
-        _bt.ConnectionChanged += d =>
-            Peek(d.Name, d.IsConnected ? "Bağlandı" : "Bağlantı kesildi", d.Glyph, null);
-
-        _notifService.Received += n => Dispatcher.InvokeAsync(() =>
-        {
-            _notifs.Insert(0, n);
-            while (_notifs.Count > 20) _notifs.RemoveAt(_notifs.Count - 1);
-            _unread++;
-            UpdateNotifUi();
-            Peek(n.Title, n.Body.Length > 0 ? n.Body : n.App, "", n.Icon);
-        });
-
-        _bt.Start();
-        await _media.StartAsync();
         UpdateMedia();
-
-        bool hasAccess = await _notifService.StartAsync();
-        NotifNoAccess.Visibility = Vis(!hasAccess);
         UpdateNotifUi();
-
+        OnBtChanged(null, EventArgs.Empty);
+        _fullscreenTimer.Start();
         _trimTimer.Start();
+    }
+
+    private void Detach()
+    {
+        _closed = true;
+        _settings.Changed -= OnSettingsChanged;
+        _media.Changed -= UpdateMedia;
+        _media.TimelineChanged -= UpdateProgress;
+        _host.NotificationsChanged -= UpdateNotifUi;
+        _host.Bluetooth.Devices.CollectionChanged -= OnBtChanged;
+        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer })
+            t.Stop();
+        _eq?.Stop(this);
+        BtList.ItemsSource = null;
+        NotifList.ItemsSource = null;
+    }
+
+    private void OnBtChanged(object? sender, EventArgs e) => BtEmpty.Visibility = Vis(_host.Bluetooth.Devices.Count == 0);
+
+    // ---------------------------------------------------------------- ekran / ayarlar
+
+    public void SetMonitor(MonitorInfo m)
+    {
+        _monitor = m;
+        PositionWindow();
+    }
+
+    private void OnSettingsChanged()
+    {
+        if (_closed) return;
+        ApplyLayout();
+        ApplyFont();
+
+        if (!_settings.HideInFullscreen && _hiddenForFullscreen)
+        {
+            _hiddenForFullscreen = false;
+            Show();
+        }
+
+        if (_settings.Hidden != _wasHidden)
+        {
+            _wasHidden = _settings.Hidden;
+            _revealed = false;
+            if (_settings.Hidden && _mode == Mode.Expanded) SetMode(Mode.Compact);
+        }
+        ApplySlide();
+    }
+
+    private void ApplyLayout()
+    {
+        double s = Math.Clamp(_settings.Scale, AppSettings.MinScale, AppSettings.MaxScale);
+        Root.LayoutTransform = Math.Abs(s - 1) < 0.001 ? Transform.Identity : new ScaleTransform(s, s);
+        Width = BaseWidth * s;
+        Height = BaseHeight * s;
+        PositionWindow();
+    }
+
+    private void ApplyFont()
+    {
+        try { FontFamily = new FontFamily(_settings.FontFamily + ", Segoe UI"); } catch { }
+    }
+
+    /// <summary>Pencereyi kendi ekranının üst ortasına yerleştirir (farklı DPI'lı ekranlarda da).</summary>
+    private void PositionWindow()
+    {
+        if (_hwnd == IntPtr.Zero || _closed) return;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        int pxWidth = (int)Math.Round(Width * dpi.DpiScaleX);
+        int x = _monitor.Left + (_monitor.Width - pxWidth) / 2;
+        Native.MoveTo(_hwnd, x, _monitor.Top);
+    }
+
+    private void CheckFullscreen()
+    {
+        bool fs = _settings.HideInFullscreen && Native.IsFullscreenOn(_monitor);
+        if (!fs && !_hiddenForFullscreen) Native.BringToTop(_hwnd);
+        if (fs == _hiddenForFullscreen) return;
+        _hiddenForFullscreen = fs;
+        if (fs) Hide();
+        else { Show(); Native.BringToTop(_hwnd); }
+        UpdateEqualizer();
     }
 
     // ---------------------------------------------------------------- durum / animasyon
@@ -159,7 +223,7 @@ public partial class MainWindow : Window
         if (m == Mode.Expanded)
         {
             ClockText.Text = DateTime.Now.ToString("ddd HH:mm");
-            if (TabNotif.IsChecked == true) MarkRead();
+            if (TabNotif.IsChecked == true) _host.MarkRead();
             UpdateProgress();
             _progressTimer.Start();
         }
@@ -180,6 +244,32 @@ public partial class MainWindow : Window
             _trimTimer.Stop(); _trimTimer.Start();
             if (_settings.Hidden && _revealed) { _rehideTimer.Stop(); _rehideTimer.Start(); }
         }
+    }
+
+    private void AnimateSize(double w, double h)
+    {
+        var dur = new Duration(TimeSpan.FromMilliseconds(340));
+        var ease = new BackEase { Amplitude = 0.22, EasingMode = EasingMode.EaseOut };
+        Island.BeginAnimation(WidthProperty, new DoubleAnimation(w, dur) { EasingFunction = ease });
+        Island.BeginAnimation(HeightProperty, new DoubleAnimation(h, dur) { EasingFunction = ease });
+    }
+
+    private void ShowView(FrameworkElement view)
+    {
+        foreach (var v in new FrameworkElement[] { CompactView, PeekView, ExpandedView })
+        {
+            if (v == view) continue;
+            v.BeginAnimation(OpacityProperty, null);
+            v.Opacity = 0;
+            v.Visibility = Visibility.Collapsed;
+        }
+        if (view.Visibility == Visibility.Visible && view.Opacity >= 1) return;
+
+        view.Visibility = Visibility.Visible;
+        view.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+        {
+            BeginTime = TimeSpan.FromMilliseconds(110)
+        });
     }
 
     // ---------------------------------------------------------------- gizleme (Ctrl + Win)
@@ -214,77 +304,55 @@ public partial class MainWindow : Window
         _revealCheckTimer.Start();
     }
 
-    private void ToggleHidden()
+    // ---------------------------------------------------------------- kısa bildirim (peek)
+
+    public void Peek(PeekItem item)
     {
-        _settings.Hidden = !_settings.Hidden;
-        _revealed = false;
-        if (_settings.Hidden && _mode == Mode.Expanded) SetMode(Mode.Compact);
-        _settings.Save(); // ApplySettings -> ApplySlide
-    }
-
-    // ---------------------------------------------------------------- ayarlar
-
-    private void ApplySettings()
-    {
-        double s = Math.Clamp(_settings.Scale, AppSettings.MinScale, AppSettings.MaxScale);
-        Root.LayoutTransform = Math.Abs(s - 1) < 0.001 ? Transform.Identity : new ScaleTransform(s, s);
-        Width = BaseWidth * s;
-        Height = BaseHeight * s;
-        PositionWindow();
-
-        try { FontFamily = new FontFamily(_settings.FontFamily + ", Segoe UI"); } catch { }
-
-        if (_settings.HotkeyEnabled) _hotkey.Start(); else _hotkey.Stop();
-
-        if (!_settings.HideInFullscreen && _hiddenForFullscreen)
+        if (_closed || _hiddenForFullscreen || _mode == Mode.Expanded) return;
+        if (_mode == Mode.Peek)
         {
-            _hiddenForFullscreen = false;
-            Show();
-        }
-
-        if (!_settings.Hidden) _revealed = false;
-        ApplySlide();
-        _tray?.SetTooltip(_settings.Hidden ? "M#Pro (gizli · Ctrl+Win)" : "M#Pro");
-    }
-
-    private void OpenSettings()
-    {
-        if (_settingsWindow != null)
-        {
-            if (_settingsWindow.WindowState == WindowState.Minimized) _settingsWindow.WindowState = WindowState.Normal;
-            _settingsWindow.Activate();
+            if (_peekQueue.Count < 5) _peekQueue.Enqueue(item);
             return;
         }
-        _settingsWindow = new SettingsWindow(_settings);
-        _settingsWindow.Closed += (_, _) =>
-        {
-            _settingsWindow = null;
-            _trimTimer.Stop(); _trimTimer.Start();
-        };
-        _settingsWindow.Show();
-        _settingsWindow.Activate();
+        ShowPeekNow(item);
     }
 
-    /// <summary>Hem tepsi ikonunda hem çentikte sağ tıkla açılan menü.</summary>
-    private void ShowMenu()
+    private void ShowPeekNow(PeekItem p)
     {
-        _tray?.ShowMenu(new[]
-        {
-            new TrayIcon.MenuItem("Ayarlar", OpenSettings),
-            TrayIcon.MenuItem.Separator,
-            new TrayIcon.MenuItem("Çentiği gizle\tCtrl+Win", ToggleHidden, _settings.Hidden),
-            new TrayIcon.MenuItem("Bilgisayar açılınca başlat", () =>
-            {
-                _settings.StartWithWindows = !_settings.StartWithWindows;
-                _settings.Save();
-            }, _settings.StartWithWindows),
-            TrayIcon.MenuItem.Separator,
-            new TrayIcon.MenuItem("Çıkış", () => Application.Current.Shutdown())
-        });
+        PeekTitle.Text = p.Title;
+        PeekText.Text = p.Text;
+        PeekArtBrush.ImageSource = p.Image;
+        PeekGlyph.Text = p.Image == null ? p.Glyph : "";
+
+        if (_mode == Mode.Peek) PeekView.Opacity = 0;
+        SetMode(Mode.Peek);
+        _peekTimer.Stop();
+        _peekTimer.Start();
     }
 
-    /// <summary>İkinci kez çalıştırılınca (ör. Başlat menüsünden) ayarları aç.</summary>
-    public void OnSecondInstance() => OpenSettings();
+    // ---------------------------------------------------------------- medya
+
+    private void UpdateMedia()
+    {
+        if (_closed) return;
+        bool has = _media.HasMedia;
+        MediaTitle.Text = has ? _media.Title : "Şu anda çalan bir şey yok";
+        MediaArtist.Text = has ? _media.Artist : "";
+        MediaApp.Text = has ? _media.AppName : "";
+        MediaArtBrush.ImageSource = _media.Art;
+        MediaArtGlyph.Visibility = Vis(_media.Art == null);
+        PlayBtn.Content = _media.IsPlaying ? "" : "";
+        PrevBtn.IsEnabled = PlayBtn.IsEnabled = NextBtn.IsEnabled = has;
+        ProgressTrack.Cursor = _media.CanSeek ? Cursors.Hand : null;
+
+        CompactArtBox.Visibility = Vis(has);
+        CompactArtBrush.ImageSource = _media.Art;
+        CompactArtGlyph.Visibility = Vis(_media.Art == null);
+        MediaAppGlyph.Visibility = Vis(has);
+
+        if (_mode == Mode.Compact) SetMode(Mode.Compact); // genişliği ayarla
+        else { UpdateAmbient(); UpdateEqualizer(); UpdateProgress(); }
+    }
 
     /// <summary>Kapak resminden bulanık arka plan, yalnızca panel açıkken.</summary>
     private void UpdateAmbient()
@@ -311,7 +379,7 @@ public partial class MainWindow : Window
     {
         bool run = _mode == Mode.Compact && _media.HasMedia && _media.IsPlaying && !_hiddenForFullscreen && !_slidUp;
         EqPanel.Visibility = Vis(_media.HasMedia && _media.IsPlaying);
-        CompactDot.Visibility = Vis(_unread > 0 && EqPanel.Visibility != Visibility.Visible);
+        CompactDot.Visibility = Vis(_host.Unread > 0 && EqPanel.Visibility != Visibility.Visible);
         if (run == _eqRunning || _eq == null) return;
         _eqRunning = run;
         if (run) _eq.Begin(this, true);
@@ -320,106 +388,118 @@ public partial class MainWindow : Window
 
     private void UpdateProgress()
     {
+        if (_closed || _seeking || _mode != Mode.Expanded) return;
         var p = _media.HasMedia ? _media.GetProgress() : null;
         ProgressRow.Visibility = Vis(p != null);
         if (p == null) return;
         var (pos, dur) = p.Value;
+
+        // Sarmadan hemen sonra kaynak uygulama yeni konumu bildirene kadar çubuk geri zıplamasın
+        if (DateTime.Now < _pendingSeekUntil)
+            pos = _pendingSeek + (_media.IsPlaying ? DateTime.Now - (_pendingSeekUntil - TimeSpan.FromSeconds(1.5)) : TimeSpan.Zero);
+
+        ShowPosition(pos, dur);
+    }
+
+    private void ShowPosition(TimeSpan pos, TimeSpan dur)
+    {
+        if (pos < TimeSpan.Zero) pos = TimeSpan.Zero;
+        if (pos > dur) pos = dur;
         PosText.Text = Fmt(pos);
         DurText.Text = Fmt(dur);
         double w = ProgressTrack.ActualWidth;
-        ProgressFill.Width = w > 0 ? Math.Max(4, w * pos.TotalSeconds / dur.TotalSeconds) : 0;
-
-        static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
+        double fill = w > 0 && dur.TotalSeconds > 0 ? w * pos.TotalSeconds / dur.TotalSeconds : 0;
+        ProgressFill.Width = Math.Max(4, fill);
+        SeekKnob.Margin = new Thickness(Math.Clamp(fill - 6, 0, Math.Max(0, w - 12)), 0, 0, 0);
     }
 
-    private void AnimateSize(double w, double h)
-    {
-        var dur = new Duration(TimeSpan.FromMilliseconds(340));
-        var ease = new BackEase { Amplitude = 0.22, EasingMode = EasingMode.EaseOut };
-        Island.BeginAnimation(WidthProperty, new DoubleAnimation(w, dur) { EasingFunction = ease });
-        Island.BeginAnimation(HeightProperty, new DoubleAnimation(h, dur) { EasingFunction = ease });
-    }
+    private static string Fmt(TimeSpan t) => t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss");
 
-    private void ShowView(FrameworkElement view)
+    // ---------------------------------------------------------------- ileri / geri sarma
+
+    private void HookSeekBar()
     {
-        foreach (var v in new FrameworkElement[] { CompactView, PeekView, ExpandedView })
+        ProgressTrack.SizeChanged += (_, _) => UpdateProgress();
+
+        ProgressTrack.MouseEnter += (_, _) => SetSeekHover(true);
+        ProgressTrack.MouseLeave += (_, _) => { if (!_seeking) SetSeekHover(false); };
+
+        ProgressTrack.MouseLeftButtonDown += (_, e) =>
         {
-            if (v == view) continue;
-            v.BeginAnimation(OpacityProperty, null);
-            v.Opacity = 0;
-            v.Visibility = Visibility.Collapsed;
-        }
-        if (view.Visibility == Visibility.Visible && view.Opacity >= 1) return;
-
-        view.Visibility = Visibility.Visible;
-        view.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            var p = _media.CanSeek ? _media.GetProgress() : null;
+            if (p == null) return;
+            _seekDuration = p.Value.Duration;
+            _seeking = true;
+            ProgressTrack.CaptureMouse();
+            PreviewSeek(e.GetPosition(ProgressTrack).X);
+            e.Handled = true;
+        };
+        ProgressTrack.MouseMove += (_, e) =>
         {
-            BeginTime = TimeSpan.FromMilliseconds(110)
-        });
-    }
-
-    private void Peek(string title, string text, string glyph, ImageSource? image)
-    {
-        if (_hiddenForFullscreen || _mode == Mode.Expanded) return;
-        var item = new PeekItem(title, text, glyph, image);
-        if (_mode == Mode.Peek)
+            if (_seeking) PreviewSeek(e.GetPosition(ProgressTrack).X);
+        };
+        ProgressTrack.MouseLeftButtonUp += async (_, e) =>
         {
-            if (_peekQueue.Count < 5) _peekQueue.Enqueue(item);
-            return;
-        }
-        ShowPeekNow(item);
+            if (!_seeking) return;
+            var target = PreviewSeek(e.GetPosition(ProgressTrack).X);
+            _seeking = false;
+            ProgressTrack.ReleaseMouseCapture();
+            if (!ProgressTrack.IsMouseOver) SetSeekHover(false);
+            await SeekTo(target);
+        };
+        ProgressTrack.LostMouseCapture += (_, _) =>
+        {
+            if (!_seeking) return;
+            _seeking = false;
+            SetSeekHover(false);
+        };
+
+        // Fare tekerleği: ileri / geri 10 saniye
+        ProgressRow.MouseWheel += async (_, e) =>
+        {
+            var p = _media.CanSeek ? _media.GetProgress() : null;
+            if (p == null) return;
+            var target = p.Value.Position + TimeSpan.FromSeconds(e.Delta > 0 ? 10 : -10);
+            e.Handled = true;
+            ShowPosition(target, p.Value.Duration);
+            await SeekTo(target);
+        };
     }
 
-    private void ShowPeekNow(PeekItem p)
+    private void SetSeekHover(bool on)
     {
-        PeekTitle.Text = p.Title;
-        PeekText.Text = p.Text;
-        PeekArtBrush.ImageSource = p.Image;
-        PeekGlyph.Text = p.Image == null ? p.Glyph : "";
-
-        // Peek içeriği değişirken hafif bir "nefes" efekti
-        if (_mode == Mode.Peek) PeekView.Opacity = 0;
-        SetMode(Mode.Peek);
-        _peekTimer.Stop();
-        _peekTimer.Start();
+        bool show = on && _media.CanSeek;
+        TrackBg.Height = ProgressFill.Height = show ? 6 : 4;
+        SeekKnob.Visibility = Vis(show);
     }
 
-    // ---------------------------------------------------------------- içerik güncelleme
-
-    private void UpdateMedia()
+    private TimeSpan PreviewSeek(double x)
     {
-        bool has = _media.HasMedia;
-        MediaTitle.Text = has ? _media.Title : "Şu anda çalan bir şey yok";
-        MediaArtist.Text = has ? _media.Artist : "";
-        MediaApp.Text = has ? _media.AppName : "";
-        MediaArtBrush.ImageSource = _media.Art;
-        MediaArtGlyph.Visibility = Vis(_media.Art == null);
-        PlayBtn.Content = _media.IsPlaying ? "" : "";
-        PrevBtn.IsEnabled = PlayBtn.IsEnabled = NextBtn.IsEnabled = has;
-
-        CompactArtBox.Visibility = Vis(has);
-        CompactArtBrush.ImageSource = _media.Art;
-        CompactArtGlyph.Visibility = Vis(_media.Art == null);
-        MediaAppGlyph.Visibility = Vis(has);
-
-        if (_mode == Mode.Compact) SetMode(Mode.Compact); // genişliği ayarla
-        else { UpdateAmbient(); UpdateEqualizer(); UpdateProgress(); }
+        double w = Math.Max(1, ProgressTrack.ActualWidth);
+        double frac = Math.Clamp(x / w, 0, 1);
+        var pos = TimeSpan.FromSeconds(_seekDuration.TotalSeconds * frac);
+        ShowPosition(pos, _seekDuration);
+        return pos;
     }
+
+    private async Task SeekTo(TimeSpan target)
+    {
+        _pendingSeek = target < TimeSpan.Zero ? TimeSpan.Zero : target;
+        _pendingSeekUntil = DateTime.Now + TimeSpan.FromSeconds(1.5);
+        await _media.SeekAsync(_pendingSeek);
+    }
+
+    // ---------------------------------------------------------------- bildirimler
 
     private void UpdateNotifUi()
     {
-        bool noAccess = NotifNoAccess.Visibility == Visibility.Visible;
-        NotifEmpty.Visibility = Vis(!noAccess && _notifs.Count == 0);
-        ClearBtn.Visibility = Vis(_notifs.Count > 0);
-        NotifBadge.Visibility = Vis(_unread > 0);
-        NotifBadgeText.Text = _unread > 9 ? "9+" : _unread.ToString();
+        if (_closed) return;
+        NotifNoAccess.Visibility = Vis(!_host.NotificationAccess);
+        NotifEmpty.Visibility = Vis(_host.NotificationAccess && _host.NotifItems.Count == 0);
+        ClearBtn.Visibility = Vis(_host.NotifItems.Count > 0);
+        NotifBadge.Visibility = Vis(_host.Unread > 0);
+        NotifBadgeText.Text = _host.Unread > 9 ? "9+" : _host.Unread.ToString();
         UpdateEqualizer();
-    }
-
-    private void MarkRead()
-    {
-        _unread = 0;
-        UpdateNotifUi();
     }
 
     // ---------------------------------------------------------------- olaylar
@@ -430,7 +510,7 @@ public partial class MainWindow : Window
         MediaPanel.Visibility = Vis(TabMedia.IsChecked == true);
         BtPanel.Visibility = Vis(TabBt.IsChecked == true);
         NotifPanel.Visibility = Vis(TabNotif.IsChecked == true);
-        if (TabNotif.IsChecked == true) MarkRead();
+        if (TabNotif.IsChecked == true) _host.MarkRead();
     }
 
     private async void PlayPause_Click(object sender, RoutedEventArgs e) => await _media.PlayPauseAsync();
@@ -439,30 +519,9 @@ public partial class MainWindow : Window
 
     private void OpenBtSettings_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:bluetooth");
     private void OpenNotifSettings_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:privacy-notifications");
-
-    private void ClearNotifs_Click(object sender, RoutedEventArgs e)
-    {
-        _notifs.Clear();
-        MarkRead();
-    }
+    private void ClearNotifs_Click(object sender, RoutedEventArgs e) => _host.ClearNotifications();
 
     // ---------------------------------------------------------------- yardımcılar
-
-    private void PositionWindow()
-    {
-        Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
-        Top = 0;
-    }
-
-    private void CheckFullscreen()
-    {
-        bool fs = _settings.HideInFullscreen && Native.IsFullscreenBusy();
-        if (!fs) Native.BringToTop(_hwnd);
-        if (fs == _hiddenForFullscreen) return;
-        _hiddenForFullscreen = fs;
-        if (fs) Hide();
-        else { Show(); Topmost = false; Topmost = true; }
-    }
 
     private static DispatcherTimer MakeTimer(int ms, Action action, bool repeat = false)
     {

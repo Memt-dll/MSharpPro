@@ -1,14 +1,26 @@
-# Bir sürüm etiketi (ör. v1.0.0) push edildiğinde kurulum dosyasını üretir
-# ve GitHub Releases sayfasına yükler. Actions sekmesinden elle de çalıştırılabilir.
+# main dalına her push'ta (ve v* etiketlerinde) yeni bir sürüm derler:
+#   - sürüm numarası otomatik artar (csproj'daki Major.Minor + çalıştırma numarası, ör. 1.0.7)
+#   - kurulum dosyası GitHub Releases'a eklenir -> uygulamalar saatte bir denetleyip kendini günceller
+#   - repodaki Setup/MSharpPro-Setup.exe de güncellenir
+# Yalnızca README / Setup değişikliklerinde yeni sürüm çıkmaz.
 name: Release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - 'Setup/**'
+      - '.gitignore'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,9 +35,16 @@ jobs:
       - name: Sürümü belirle
         shell: pwsh
         run: |
-          $v = '${{ github.ref_name }}'.TrimStart('v')
-          if ($v -notmatch '^\d+\.\d+\.\d+$') { $v = '1.0.0' }
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $v = '${{ github.ref_name }}'.TrimStart('v')
+          } else {
+            $base = ([xml](Get-Content MSharpPro.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            $p = $base.Split('.')
+            $v = "$($p[0]).$($p[1]).${{ github.run_number }}"
+          }
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Geçersiz sürüm: $v" }
           "VERSION=$v" >> $env:GITHUB_ENV
+          Write-Host "Sürüm: $v"
 
       - name: Inno Setup kur
         shell: pwsh
@@ -45,17 +64,19 @@ jobs:
           path: dist/*.exe
 
       - name: GitHub Release oluştur
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: M#Pro ${{ env.VERSION }}
           files: dist/*.exe
           generate_release_notes: true
+          make_latest: true
 
       # Repodaki Setup/MSharpPro-Setup.exe dosyasını yeni sürümle güncelle,
       # böylece repo sayfasından indirilen kurulum hep en güncel olur.
+      # (GITHUB_TOKEN ile yapılan push yeni bir iş akışı tetiklemez, döngü oluşmaz.)
       - name: Setup klasörünü güncelle
-        if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         run: |
           git fetch origin main
@@ -68,6 +89,10 @@ jobs:
           git diff --cached --quiet
           if ($LASTEXITCODE -ne 0) {
             git commit -m "Kurulum dosyası $env:VERSION sürümüne güncellendi [skip ci]"
-            git push origin main
+            for ($i = 0; $i -lt 3; $i++) {
+              git push origin main
+              if ($LASTEXITCODE -eq 0) { break }
+              git pull --rebase origin main
+            }
           }
           exit 0

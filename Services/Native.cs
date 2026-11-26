@@ -17,7 +17,6 @@ internal static class Native
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
     [DllImport("kernel32.dll")] private static extern IntPtr GetCurrentProcess();
     [DllImport("kernel32.dll")] private static extern bool SetProcessWorkingSetSize(IntPtr proc, IntPtr min, IntPtr max);
-    [DllImport("shell32.dll")] private static extern int SHQueryUserNotificationState(out int state);
 
     /// <summary>Alt+Tab'da görünmesin, tıklayınca odak çalmasın.</summary>
     public static void MakeToolWindow(IntPtr hwnd)
@@ -43,11 +42,37 @@ internal static class Native
         SetProcessWorkingSetSize(GetCurrentProcess(), -1, -1);
     }
 
-    /// <summary>Tam ekran oyun / video / sunum açık mı?</summary>
-    public static bool IsFullscreenBusy()
+    [StructLayout(LayoutKind.Sequential)] private struct RECT { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] private static extern int GetWindowThreadProcessId(IntPtr h, out int pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr h, System.Text.StringBuilder sb, int max);
+
+    /// <summary>
+    /// Verilen ekranda tam ekran bir uygulama (oyun, video, sunum) öndeyse true.
+    /// Ekran başına çalışır: 2. ekranda film açıkken 1. ekrandaki çentik görünmeye devam eder.
+    /// </summary>
+    public static bool IsFullscreenOn(MonitorInfo m)
     {
-        if (SHQueryUserNotificationState(out int s) != 0) return false;
-        return s is 2 /*BUSY*/ or 3 /*D3D FULLSCREEN*/ or 4 /*PRESENTATION*/;
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero) return false;
+        GetWindowThreadProcessId(fg, out int pid);
+        if (pid == Environment.ProcessId) return false;
+
+        var sb = new System.Text.StringBuilder(64);
+        GetClassName(fg, sb, sb.Capacity);
+        string cls = sb.ToString();
+        if (cls is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") return false;
+
+        if (!GetWindowRect(fg, out var r)) return false;
+        return r.Left <= m.Left && r.Top <= m.Top && r.Right >= m.Left + m.Width && r.Bottom >= m.Top + m.Height;
+    }
+
+    /// <summary>Pencereyi fiziksel piksel koordinatlarına taşır (boyutu ve sırayı değiştirmeden).</summary>
+    public static void MoveTo(IntPtr hwnd, int x, int y)
+    {
+        const uint SWP_NOSIZE = 0x1, SWP_NOZORDER = 0x4, SWP_NOACTIVATE = 0x10;
+        SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
     }
 }
 

@@ -70,23 +70,42 @@ public sealed class NotificationService
 
     private static async Task<NotifItem?> ToItemAsync(UserNotification n)
     {
-        var binding = n.Notification?.Visual?.GetBinding(KnownNotificationBindings.ToastGeneric);
-        if (binding == null) return null;
+        // Çoğu uygulama "ToastGeneric" şablonunu kullanır; Teams gibi bazıları eski şablonlarla
+        // (ToastText02 vb.) gönderebilir. Hiçbirini kaçırmamak için tüm şablonlara bakılır.
+        var visual = n.Notification?.Visual;
+        if (visual == null) return null;
+        NotificationBinding? binding = null;
+        try { binding = visual.GetBinding(KnownNotificationBindings.ToastGeneric); } catch { }
+        if (binding == null)
+        {
+            try { binding = visual.Bindings.FirstOrDefault(); } catch { }
+        }
 
-        var texts = binding.GetTextElements()
-            .Select(t => t.Text)
-            .Where(t => !string.IsNullOrWhiteSpace(t))
-            .ToList();
+        var texts = new List<string>();
+        if (binding != null)
+        {
+            try
+            {
+                texts = binding.GetTextElements()
+                    .Select(t => t.Text)
+                    .Where(t => !string.IsNullOrWhiteSpace(t))
+                    .ToList();
+            }
+            catch { }
+        }
 
         string app = "";
         ImageSource? icon = null;
+        // Uygulama adı ve ikonu ayrı ayrı okunur: ikon alınamasa da (ör. Teams) ad kaybolmasın
+        try { app = n.AppInfo.DisplayInfo.DisplayName; } catch { }
         try
         {
-            app = n.AppInfo.DisplayInfo.DisplayName;
             icon = await ImageUtil.LoadAsync(
                 n.AppInfo.DisplayInfo.GetLogo(new global::Windows.Foundation.Size(48, 48)), 48);
         }
         catch { }
+
+        if (texts.Count == 0 && app.Length == 0) return null;
 
         return new NotifItem
         {

@@ -40,14 +40,22 @@ public partial class App : Application
         };
 
         base.OnStartup(e);
-        var main = new MainWindow();
-        main.Show();
+        _host = new AppHost(Dispatcher);
+        _ = StartHostAsync(_host);
 
         // İkinci kopyadan gelen sinyali bekle (ayrı thread açmadan, thread havuzunda)
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         _wait = ThreadPool.RegisterWaitForSingleObject(_showEvent,
-            (_, _) => Dispatcher.InvokeAsync(main.OnSecondInstance), null, Timeout.Infinite, false);
+            (_, _) => Dispatcher.InvokeAsync(() => _host?.OpenSettings()), null, Timeout.Infinite, false);
     }
+
+    private static async Task StartHostAsync(AppHost host)
+    {
+        try { await host.StartAsync(); }
+        catch (Exception ex) { LogError(ex); }
+    }
+
+    private AppHost? _host;
 
     /// <summary>Hataları %AppData%\MSharpPro\error.log dosyasına yazar (en fazla ~100 KB).</summary>
     public static void LogError(Exception ex)
@@ -65,6 +73,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _host?.Shutdown();
         _wait?.Unregister(null);
         _showEvent?.Dispose();
         _mutex?.Dispose();

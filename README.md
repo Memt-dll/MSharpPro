@@ -28,12 +28,16 @@ Kaldırmak için: **Ayarlar › Uygulamalar › M#Pro › Kaldır**.
 ## Özellikler
 - **Çentik:** Ekranın üst ortasında durur. Çalan şarkının kapağını ve hareketli bir ekolayzer gösterir; okunmamış bildirim varsa küçük bir nokta çıkar.
 - **Fareyle üzerine gelince açılır:** Medya / Bluetooth / Bildirimler sekmeleri.
-- **Medya:** Kapak resmi, şarkı adı, sanatçı, uygulama, ilerleme çubuğu; önceki / oynat-duraklat / sonraki. Arka planda kapak resminden bulanık bir ortam rengi oluşur.
+- **Medya:** Kapak resmi, şarkı adı, sanatçı, uygulama, ilerleme çubuğu; önceki / oynat-duraklat / sonraki. Arka planda kapak resminden bulanık bir ortam rengi oluşur. Spotify, YouTube (Chrome / Edge / Firefox), Medya Oynatıcı vb. desteklenir; birden fazla kaynak varsa çalan otomatik seçilir.
+- **İleri / geri sarma:** İlerleme çubuğuna tıklayın ya da sürükleyin; fare tekerleğiyle ±10 saniye.
+- **Birden fazla ekran:** Çentik ana ekranda, seçilen bir ekranda ya da tüm ekranlarda gösterilebilir. Servisler tek kez çalışır, her ekran yalnızca hafif bir pencere ekler.
+- **Otomatik güncelleme:** GitHub'a her push'tan sonra yeni sürüm derlenir; kurulu uygulamalar saatte bir denetleyip kendini sessizce günceller ve yeniden açılır. Ayarlardan kapatılabilir, "Şimdi denetle" ile elle denetlenebilir.
 - **Bluetooth:** Eşleştirilmiş cihazlar ve bağlantı durumu. Bir cihaz bağlanınca veya bağlantısı kopunca çentikte kısa bir bildirim çıkar.
 - **Bildirimler:** Windows bildirimleri çentikte kısa süre görünür ve listede birikir.
 - **Gizleme:** `Ctrl` + `Win` tuşlarına birlikte basıp bırakınca çentik yukarı kayarak gizlenir. Gizliyken fareyi ekranın üst kenarına götürünce aşağı iner. Bildirimler gizliyken de görünür.
 - **Sistem tepsisi:** Saatin yanındaki M#Pro ikonuna tıklayınca ayarlar açılır, sağ tıkla menü çıkar (çentiğe sağ tıklamak da aynı menüyü açar).
-- **Ayarlar penceresi:** yazı tipi, çentik boyutu (%80 – %140), bilgisayar açılınca başlat, çentiği gizle, Ctrl + Win kısayolu, tam ekranda gizle.
+- **Ayarlar penceresi:** gösterileceği ekran, yazı tipi, çentik boyutu (%80 – %140), bilgisayar açılınca başlat, çentiği gizle, Ctrl + Win kısayolu, tam ekranda gizle, otomatik güncelleme.
+- **Teams ve diğer uygulamaların bildirimleri:** Windows bildirimi olarak gönderilen her bildirim okunur. Teams'te **Ayarlar › Bildirimler › Bildirim stili** "Windows" olmalıdır ("Teams yerleşik" seçiliyse bildirimler Windows'a hiç ulaşmaz).
 - Tam ekran oyun, video ya da sunumda kendini gizler.
 
 Ayarlar `%AppData%\MSharpPro\settings.json` dosyasında, hatalar `%AppData%\MSharpPro\error.log` dosyasında tutulur.
@@ -55,12 +59,9 @@ dotnet build -c Release
 ```
 Çıktı: `dist\MSharpPro-Setup-<sürüm>.exe`
 
-### Yeni sürüm yayınlamak (GitHub Releases)
-`MSharpPro.csproj` içindeki `<Version>` değerini artırın, sonra bir etiket push edin:
-```powershell
-git tag v1.0.0
-git push origin v1.0.0
-```
+### Yeni sürüm yayınlamak
+`main` dalına push etmeniz yeterli: sürüm numarası otomatik artar (`1.0.<çalıştırma no>`). Büyük bir sürüm atlamak için `MSharpPro.csproj` içindeki `<Version>` değerinin ilk iki hanesini değiştirin (ör. `1.1.0`). README ve `Setup/` değişiklikleri yeni sürüm üretmez.
+
 GitHub Actions (`.github/workflows/release.yml`) uygulamayı derler, kurulum dosyasını üretir, Releases sayfasına ekler ve repodaki `Setup/MSharpPro-Setup.exe` dosyasını da yeni sürümle günceller. Bu güncelleme `main` dalına ayrı bir commit olarak gelir; sonrasında yerelde `git pull` yapın.
 
 ## Proje yapısı

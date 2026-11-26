@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -10,27 +9,44 @@ namespace MSharpPro;
 
 public partial class SettingsWindow : Window
 {
+    /// <summary>Ekran açılır listesindeki bir seçenek.</summary>
+    private sealed record DisplayChoice(string Value, string Label)
+    {
+        public override string ToString() => Label;
+    }
+
+    private readonly AppHost _host;
     private readonly AppSettings _settings;
+    private readonly UpdateService _updates;
     private bool _loading;
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
-    public SettingsWindow(AppSettings settings)
+    public SettingsWindow(AppHost host)
     {
-        _settings = settings;
+        _host = host;
+        _settings = host.Settings;
+        _updates = host.Updates;
         _loading = true; // InitializeComponent sırasında kaydırıcının ilk değeri ayara yazılmasın
         InitializeComponent();
 
-        var v = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = $"Sürüm {v?.Major}.{v?.Minor}.{v?.Build}  ·  Windows için çentik";
+        VersionText.Text = $"Sürüm {UpdateService.Fmt(_updates.Current)}  ·  Windows için çentik";
+        MaxHeight = SystemParameters.WorkArea.Height - 40;
 
         // Yazı tiplerini isme göre sırala (liste sanallaştırılmış, sadece görünenler çizilir)
         FontCombo.ItemsSource = Fonts.SystemFontFamilies.OrderBy(f => f.Source).ToList();
+        FillDisplays();
 
         LoadValues();
+        UpdateUpdateUi();
         _settings.Changed += OnSettingsChanged;
-        Closed += (_, _) => _settings.Changed -= OnSettingsChanged;
+        _updates.StateChanged += UpdateUpdateUi;
+        Closed += (_, _) =>
+        {
+            _settings.Changed -= OnSettingsChanged;
+            _updates.StateChanged -= UpdateUpdateUi;
+        };
 
         SourceInitialized += (_, _) =>
         {
@@ -40,6 +56,18 @@ public partial class SettingsWindow : Window
             DwmSetWindowAttribute(hwnd, 20, ref on, sizeof(int));
             DwmSetWindowAttribute(hwnd, 33, ref round, sizeof(int));
         };
+    }
+
+    private void FillDisplays()
+    {
+        var monitors = Monitors.GetAll();
+        var items = new List<DisplayChoice> { new(AppSettings.DisplayPrimary, "Ana ekran") };
+        items.AddRange(monitors.Select(m => new DisplayChoice(m.Device, m.Label)));
+        if (monitors.Count > 1) items.Add(new DisplayChoice(AppSettings.DisplayAll, "Tüm ekranlar"));
+        DisplayCombo.ItemsSource = items;
+        DisplayDesc.Text = monitors.Count > 1
+            ? $"{monitors.Count} ekran bağlı"
+            : "Tek ekran bağlı; ikinci ekran takınca seçenekler çıkar";
     }
 
     private void OnSettingsChanged()
@@ -53,12 +81,16 @@ public partial class SettingsWindow : Window
         _loading = true;
         FontCombo.SelectedItem = (FontCombo.ItemsSource as IEnumerable<FontFamily>)?
             .FirstOrDefault(f => string.Equals(f.Source, _settings.FontFamily, StringComparison.OrdinalIgnoreCase));
+        var displays = (IEnumerable<DisplayChoice>)DisplayCombo.ItemsSource;
+        DisplayCombo.SelectedItem = displays.FirstOrDefault(d =>
+            string.Equals(d.Value, _settings.Display, StringComparison.OrdinalIgnoreCase)) ?? displays.First();
         ScaleSlider.Value = _settings.Scale;
         ScaleText.Text = $"%{Math.Round(_settings.Scale * 100)}";
         StartupToggle.IsChecked = _settings.StartWithWindows;
         HiddenToggle.IsChecked = _settings.Hidden;
         HotkeyToggle.IsChecked = _settings.HotkeyEnabled;
         FullscreenToggle.IsChecked = _settings.HideInFullscreen;
+        AutoUpdateToggle.IsChecked = _settings.AutoUpdate;
         _loading = false;
     }
 
@@ -66,6 +98,13 @@ public partial class SettingsWindow : Window
     {
         if (_loading || FontCombo.SelectedItem is not FontFamily f) return;
         _settings.FontFamily = f.Source;
+        Save();
+    }
+
+    private void DisplayCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading || DisplayCombo.SelectedItem is not DisplayChoice d) return;
+        _settings.Display = d.Value;
         Save();
     }
 
@@ -85,6 +124,7 @@ public partial class SettingsWindow : Window
         else if (sender == HiddenToggle) _settings.Hidden = HiddenToggle.IsChecked == true;
         else if (sender == HotkeyToggle) _settings.HotkeyEnabled = HotkeyToggle.IsChecked == true;
         else if (sender == FullscreenToggle) _settings.HideInFullscreen = FullscreenToggle.IsChecked == true;
+        else if (sender == AutoUpdateToggle) _settings.AutoUpdate = AutoUpdateToggle.IsChecked == true;
         Save();
     }
 
@@ -94,6 +134,31 @@ public partial class SettingsWindow : Window
         try { _settings.Save(); }
         finally { _loading = false; }
     }
+
+    // ---------------------------------------------------------------- güncelleme
+
+    private void UpdateUpdateUi()
+    {
+        var s = _updates.State;
+        UpdateStatus.Text = s == UpdateService.UpdateState.Idle
+            ? $"Yüklü sürüm: {UpdateService.Fmt(_updates.Current)}"
+            : _updates.Message;
+
+        string detail = _updates.LastCheck is { } t ? $"Son denetim: {t:HH:mm}" : "Henüz denetlenmedi";
+        if (!_updates.IsInstalled) detail += "  ·  Bu kopya kurulumla yüklenmediği için otomatik kurulmaz";
+        UpdateDetail.Text = detail;
+
+        bool busy = s is UpdateService.UpdateState.Checking or UpdateService.UpdateState.Downloading
+            or UpdateService.UpdateState.Installing;
+        CheckUpdateBtn.IsEnabled = !busy;
+        InstallUpdateBtn.Visibility = s == UpdateService.UpdateState.Available ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+        => await _updates.CheckAsync(install: false);
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+        => await _updates.InstallNowAsync();
 
     private void Reset_Click(object sender, RoutedEventArgs e)
     {

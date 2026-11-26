@@ -60,11 +60,16 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Registry]
-; Uygulamanın kendi "Bilgisayar açılınca başlat" ayarıyla aynı kayıt
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "M#Pro"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: startup
+; Uygulamanın kendi "Bilgisayar açılınca başlat" ayarıyla aynı kayıt.
+; Otomatik (sessiz) güncellemede dokunulmaz: kullanıcı uygulamadan kapattıysa geri açılmasın.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "M#Pro"; ValueData: """{app}\{#AppExe}"""; Flags: uninsdeletevalue; Tasks: startup; Check: not WizardSilent
+; Uygulama bu değerle kurulu kopya olduğunu anlar (otomatik güncelleme yalnızca kurulu kopyada çalışır)
+Root: HKCU; Subkey: "Software\MSharpPro"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; Otomatik güncelleme sessiz kurulumla yapılır; bitince uygulamayı yeniden aç
+Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/f /im {#AppExe}"; Flags: runhidden; RunOnceId: "KillMSharpPro"

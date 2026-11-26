@@ -8,6 +8,13 @@ public sealed class AppSettings
 {
     public const double MinScale = 0.8, MaxScale = 1.4;
     public const string DefaultFont = "Segoe UI Variable Text";
+    public const string DisplayPrimary = "Primary";
+    public const string DisplayAll = "All";
+
+    /// <summary>Çentiğin gösterileceği ekran: "Primary", "All" ya da ekran aygıt adı (ör. \\.\DISPLAY2).</summary>
+    public string Display { get; set; } = DisplayPrimary;
+    /// <summary>GitHub'a yeni sürüm gelince arka planda indirip kur.</summary>
+    public bool AutoUpdate { get; set; } = true;
 
     public string FontFamily { get; set; } = DefaultFont;
     public double Scale { get; set; } = 1.0;
@@ -42,6 +49,7 @@ public sealed class AppSettings
                 {
                     s.Scale = Math.Clamp(s.Scale, MinScale, MaxScale);
                     if (string.IsNullOrWhiteSpace(s.FontFamily)) s.FontFamily = DefaultFont;
+                    if (string.IsNullOrWhiteSpace(s.Display)) s.Display = DisplayPrimary;
                     return s;
                 }
             }
@@ -70,6 +78,8 @@ public sealed class AppSettings
         Hidden = d.Hidden;
         HotkeyEnabled = d.HotkeyEnabled;
         HideInFullscreen = d.HideInFullscreen;
+        Display = d.Display;
+        AutoUpdate = d.AutoUpdate;
         Save();
     }
 }

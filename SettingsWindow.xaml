@@ -275,6 +275,7 @@
         </Style>
     </Window.Resources>
 
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24,22,24,20">
 
         <!-- Başlık -->
@@ -298,6 +299,21 @@
         <TextBlock Text="GÖRÜNÜM" Style="{StaticResource SectionTitle}"/>
         <Border Style="{StaticResource Card}">
             <StackPanel>
+                <Grid Margin="0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="200"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Gösterileceği ekran" Style="{StaticResource RowTitle}"/>
+                        <TextBlock x:Name="DisplayDesc" Text="Birden fazla ekran varsa" Style="{StaticResource RowDesc}"/>
+                    </StackPanel>
+                    <ComboBox x:Name="DisplayCombo" Grid.Column="1" Style="{StaticResource DarkCombo}"
+                              SelectionChanged="DisplayCombo_SelectionChanged"/>
+                </Grid>
+
+                <Border Style="{StaticResource Divider}"/>
+
                 <Grid Margin="0,12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition/>
@@ -405,6 +421,45 @@
             </StackPanel>
         </Border>
 
+        <!-- ================= GÜNCELLEME ================= -->
+        <TextBlock Text="GÜNCELLEME" Style="{StaticResource SectionTitle}"/>
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <CheckBox x:Name="AutoUpdateToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                    <StackPanel>
+                        <TextBlock Text="Otomatik güncelle" Style="{StaticResource RowTitle}"/>
+                        <TextBlock Text="GitHub'a yeni sürüm gelince arka planda indirir, kurar ve yeniden açar (saatte bir denetlenir)"
+                                   Style="{StaticResource RowDesc}"/>
+                    </StackPanel>
+                </CheckBox>
+
+                <Border Style="{StaticResource Divider}"/>
+
+                <Grid Margin="0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="UpdateStatus" Text="Güncellemeler henüz denetlenmedi" Style="{StaticResource RowTitle}"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock x:Name="UpdateDetail" Style="{StaticResource RowDesc}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <Button x:Name="InstallUpdateBtn" Style="{StaticResource AccentButton}" Content="Güncelle"
+                                Margin="0,0,8,0" Visibility="Collapsed" Click="InstallUpdate_Click"/>
+                        <Button x:Name="CheckUpdateBtn" Style="{StaticResource GhostButton}" Click="CheckUpdate_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72C;" FontFamily="{StaticResource Icons}" FontSize="12"
+                                           VerticalAlignment="Center" Margin="0,1,6,0"/>
+                                <TextBlock Text="Şimdi denetle"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
         <!-- Alt kısım -->
         <Grid Margin="0,22,0,0">
             <Button Style="{StaticResource GhostButton}" HorizontalAlignment="Left" Click="Reset_Click">
@@ -418,4 +473,5 @@
                     Click="Close_Click" IsDefault="True"/>
         </Grid>
     </StackPanel>
+    </ScrollViewer>
 </Window>
