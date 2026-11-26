@@ -9,9 +9,19 @@
 ---
 
 ## Kurulum
-1. [Releases](https://github.com/Memt-dll/MSharpPro/releases) sayfasından en son `MSharpPro-Setup-x.y.z.exe` dosyasını indirin.
-2. Çalıştırın. Yönetici izni gerekmez, ayrıca .NET kurmanıza da gerek yoktur.
-3. Kurulumda isterseniz "Bilgisayar açılınca M#Pro'yu başlat" ve masaüstü kısayolu seçeneklerini işaretleyin.
+
+<p align="center">
+  <a href="https://github.com/Memt-dll/MSharpPro/raw/main/Setup/MSharpPro-Setup.exe">
+    <img src="https://img.shields.io/badge/%E2%AC%87%20M%23Pro%20Kurulumunu%20%C4%B0ndir-Windows%2010%20%2F%2011-5AB8FF?style=for-the-badge" alt="M#Pro Kurulumunu İndir"/>
+  </a>
+</p>
+
+1. Yukarıdaki butona tıklayın ya da [`Setup/MSharpPro-Setup.exe`](Setup/MSharpPro-Setup.exe) dosyasını açıp **Download** deyin. Aynı dosya [Releases](https://github.com/Memt-dll/MSharpPro/releases/latest) sayfasında da var.
+2. İndirilen `MSharpPro-Setup.exe` dosyasını çalıştırın. Yönetici izni gerekmez, ayrıca .NET kurmanıza da gerek yoktur.
+3. **"Windows bilgisayarınızı korudu"** uyarısı çıkarsa **Ek bilgi › Yine de çalıştır** deyin. Uygulama ücretli bir sertifikayla imzalı olmadığı için bu uyarı çıkar.
+4. Kurulumda isterseniz "Bilgisayar açılınca M#Pro'yu başlat" ve masaüstü kısayolu seçeneklerini işaretleyin.
+
+**Gereksinim:** 64 bit Windows 10 (sürüm 2004 ve üzeri) veya Windows 11.
 
 Kaldırmak için: **Ayarlar › Uygulamalar › M#Pro › Kaldır**.
 
@@ -51,7 +61,7 @@ dotnet build -c Release
 git tag v1.0.0
 git push origin v1.0.0
 ```
-GitHub Actions (`.github/workflows/release.yml`) uygulamayı derler, kurulum dosyasını üretir ve Releases sayfasına ekler.
+GitHub Actions (`.github/workflows/release.yml`) uygulamayı derler, kurulum dosyasını üretir, Releases sayfasına ekler ve repodaki `Setup/MSharpPro-Setup.exe` dosyasını da yeni sürümle günceller. Bu güncelleme `main` dalına ayrı bir commit olarak gelir; sonrasında yerelde `git pull` yapın.
 
 ## Proje yapısı
 ```
@@ -59,6 +69,7 @@ Assets/                    ikon (app.ico, png'ler, orijinal kaynak)
 Services/                  medya, Bluetooth, bildirim, ayarlar, tepsi ikonu, Ctrl+Win kısayolu
 MainWindow.xaml(.cs)       çentik arayüzü ve animasyonlar
 SettingsWindow.xaml(.cs)   ayarlar penceresi
+Setup/MSharpPro-Setup.exe  hazır kurulum dosyası (en güncel sürüm)
 installer/MSharpPro.iss    Inno Setup kurulum betiği
 build-installer.ps1        yayınla + kurulum dosyası üret
 ```
