@@ -18,10 +18,12 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
-; Yönetici izni gerektirmeden kullanıcı klasörüne kurulur
+; Yönetici izni gerektirmeden kullanıcı klasörüne kurulur.
+; "Tüm kullanıcılar için kur" seçeneği kapalı ve önceki kurulumun yetki modu yeniden kullanılmaz:
+; böylece otomatik güncelleme hiçbir zaman Windows'un yönetici izni (UAC) penceresini açmaz.
 DefaultDirName={localappdata}\Programs\MSharpPro
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
+UsePreviousPrivileges=no
 DisableProgramGroupPage=yes
 OutputDir=..\dist
 OutputBaseFilename=MSharpPro-Setup-{#AppVersion}
@@ -69,7 +71,8 @@ Root: HKCU; Subkey: "Software\MSharpPro"; ValueType: string; ValueName: "Install
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 ; Otomatik güncelleme sessiz kurulumla yapılır; bitince uygulamayı yeniden aç
-Filename: "{app}\{#AppExe}"; Flags: nowait; Check: WizardSilent
+; runasoriginaluser: kurulum bir şekilde yönetici olarak çalıştıysa bile uygulama normal kullanıcı olarak açılır
+Filename: "{app}\{#AppExe}"; Flags: nowait runasoriginaluser; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{sys}\taskkill.exe"; Parameters: "/f /im {#AppExe}"; Flags: runhidden; RunOnceId: "KillMSharpPro"

@@ -20,6 +20,9 @@ public sealed class AppSettings
     public const string ShapeIsland = "Island";
     /// <summary>"Notch": ekranın üstüne yapışık çentik · "Island": iPhone'daki gibi yüzen oval hap.</summary>
     public string Shape { get; set; } = ShapeNotch;
+    /// <summary>En son çalışan sürüm: güncellemeden sonra "güncellendi" bildirimi göstermek için.</summary>
+    public string LastVersion { get; set; } = "";
+
     /// <summary>Kompakt çentiğin ortasında saat (iPhone gibi).</summary>
     public bool ShowClock { get; set; } = true;
 

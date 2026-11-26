@@ -87,7 +87,9 @@ public sealed class AppHost
             Peek(new PeekItem(n.Title, n.Body.Length > 0 ? n.Body : n.App, "", n.Icon));
         });
         Updates.Installing += v => Peek(new PeekItem("M#Pro güncelleniyor",
-            $"Sürüm {UpdateService.Fmt(v)} kuruluyor, birazdan yeniden açılacak", "", null));
+            $"Sürüm {UpdateService.Fmt(v)} kuruluyor, birazdan yeniden açılacak", "", null), urgent: true);
+
+        CheckJustUpdated();
 
         Bluetooth.Start();
         await Media.StartAsync();
@@ -104,9 +106,52 @@ public sealed class AppHost
         }
     }
 
-    public void Peek(PeekItem item)
+    /// <param name="urgent">Sıradaki bildirimleri beklemeden hemen göster (ör. güncelleme).</param>
+    public void Peek(PeekItem item, bool urgent = false)
     {
-        foreach (var w in _windows.Values) w.Peek(item);
+        foreach (var w in _windows.Values) w.Peek(item, urgent);
+    }
+
+    /// <summary>
+    /// Güncellemeden sonraki ilk açılışta "M#Pro güncellendi" bildirimi gösterir
+    /// ve indirilen kurulum dosyasını geçici klasörden siler (~46 MB yer açar).
+    /// </summary>
+    private void CheckJustUpdated()
+    {
+        string current = UpdateService.Fmt(Updates.Current);
+        bool updated = Settings.LastVersion.Length > 0 && Settings.LastVersion != current;
+
+        try
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "MSharpPro-Update");
+            if (System.IO.Directory.Exists(dir))
+            {
+                foreach (var file in System.IO.Directory.GetFiles(dir, "*.exe"))
+                {
+                    // Önceki sürümler son sürümü kaydetmiyordu: yeni indirilmiş kurulum dosyası da güncelleme işaretidir
+                    var info = new System.IO.FileInfo(file);
+                    if (info.Name.Contains(current) && info.LastWriteTime > DateTime.Now.AddMinutes(-15)) updated = true;
+                    try { info.Delete(); } catch { }
+                }
+            }
+        }
+        catch { }
+
+        if (Settings.LastVersion != current)
+        {
+            Settings.LastVersion = current;
+            Settings.Save();
+        }
+
+        if (!updated) return;
+        // Pencereler yerleşsin, sonra göster
+        var t = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        t.Tick += (_, _) =>
+        {
+            t.Stop();
+            Peek(new PeekItem("M#Pro güncellendi", $"Sürüm {current} yüklendi · Yenilikler GitHub'da", "", null), urgent: true);
+        };
+        t.Start();
     }
 
     // ------------------------------------------------------------------ ekranlar

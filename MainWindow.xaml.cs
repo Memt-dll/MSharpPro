@@ -361,9 +361,18 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- kısa bildirim (peek)
 
-    public void Peek(PeekItem item)
+    public void Peek(PeekItem item, bool urgent = false)
     {
-        if (_closed || _hiddenForFullscreen || _mode == Mode.Expanded) return;
+        if (_closed || _hiddenForFullscreen) return;
+        if (urgent)
+        {
+            // Sırayı beklemeden hemen göster (panel açık olsa bile)
+            _hoverTimer.Stop();
+            _leaveTimer.Stop();
+            ShowPeekNow(item);
+            return;
+        }
+        if (_mode == Mode.Expanded) return;
         if (_mode == Mode.Peek)
         {
             if (_peekQueue.Count < 5) _peekQueue.Enqueue(item);
