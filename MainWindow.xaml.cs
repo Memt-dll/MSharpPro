@@ -127,6 +127,7 @@ public partial class MainWindow : Window
         ApplyShape();
         UpdateWeather();
         UpdateClock();
+        UpdateMuteUi();
         SetMode(Mode.Compact);
         UpdateMedia();
         UpdateNotifUi();
@@ -169,8 +170,11 @@ public partial class MainWindow : Window
         ApplyShape();
         UpdateWeather();
         bool clockWas = CompactClock.Visibility == Visibility.Visible;
+        bool mutedWas = CompactMuted.Visibility == Visibility.Visible;
         UpdateClock();
-        if (clockWas != _settings.ShowClock && _mode == Mode.Compact) SetMode(Mode.Compact); // genişlik
+        UpdateMuteUi();
+        if ((clockWas != _settings.ShowClock || mutedWas != _settings.MuteNotifications) && _mode == Mode.Compact)
+            SetMode(Mode.Compact); // genişlik
 
         if (!_settings.HideInFullscreen && _hiddenForFullscreen)
         {
@@ -269,7 +273,7 @@ public partial class MainWindow : Window
         {
             Mode.Expanded => (450, 236, 30, ExpandedView),
             Mode.Peek => (384, 66, 24, PeekView),
-            _ => (_media.HasMedia ? 236 : _settings.ShowClock ? 196 : 170, 32, 16, (FrameworkElement)CompactView)
+            _ => ((_media.HasMedia ? 236 : _settings.ShowClock ? 196 : 170) + (_settings.MuteNotifications ? 20 : 0), 32, 16, (FrameworkElement)CompactView)
         };
         // Dynamic Island: tamamen yuvarlak hap (kompakt ve kısa bildirimde yarıçap = yüksekliğin yarısı),
         // açık panelde iPhone'daki gibi çok yuvarlak köşeler
@@ -597,6 +601,21 @@ public partial class MainWindow : Window
     }
 
     private void OpenAppSettings_Click(object sender, RoutedEventArgs e) => _host.OpenSettings();
+
+    // ---------------------------------------------------------------- sessize al
+
+    private void Mute_Click(object sender, RoutedEventArgs e) => _host.ToggleMute();
+
+    private static readonly Brush MutedBrush = Frozen(new SolidColorBrush(Color.FromRgb(0xFF, 0xB8, 0x6B)));
+
+    private void UpdateMuteUi()
+    {
+        bool muted = _settings.MuteNotifications;
+        MuteGlyph.Text = muted ? "" : "";
+        MuteBtn.Foreground = muted ? MutedBrush : (Brush)FindResource("ButtonIdleForeground");
+        MuteBtn.ToolTip = muted ? "Bildirimler sessizde · açmak için tıkla" : "Bildirimleri sessize al";
+        CompactMuted.Visibility = Vis(muted);
+    }
 
     // ---------------------------------------------------------------- bildirimler
 

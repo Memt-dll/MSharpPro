@@ -37,6 +37,8 @@ public sealed class AppSettings
     /// <summary>Çentik yukarı gizli mi (Ctrl+Win ile değişir).</summary>
     public bool Hidden { get; set; }
     public bool HotkeyEnabled { get; set; } = true;
+    /// <summary>Bildirimleri sessize al: çentikte açılır bildirim gösterilmez (bildirimler listede birikir).</summary>
+    public bool MuteNotifications { get; set; }
     public bool HideInFullscreen { get; set; } = true;
 
     /// <summary>Windows ile başlat: kayıt defterinde tutulur, dosyada değil.</summary>

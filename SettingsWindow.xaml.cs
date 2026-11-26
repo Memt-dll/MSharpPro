@@ -88,6 +88,7 @@ public partial class SettingsWindow : Window
         ScaleText.Text = $"%{Math.Round(_settings.Scale * 100)}";
         StartupToggle.IsChecked = _settings.StartWithWindows;
         HiddenToggle.IsChecked = _settings.Hidden;
+        MuteToggle.IsChecked = _settings.MuteNotifications;
         HotkeyToggle.IsChecked = _settings.HotkeyEnabled;
         FullscreenToggle.IsChecked = _settings.HideInFullscreen;
         AutoUpdateToggle.IsChecked = _settings.AutoUpdate;
@@ -192,6 +193,7 @@ public partial class SettingsWindow : Window
         if (_loading) return;
         if (sender == StartupToggle) _settings.StartWithWindows = StartupToggle.IsChecked == true;
         else if (sender == HiddenToggle) _settings.Hidden = HiddenToggle.IsChecked == true;
+        else if (sender == MuteToggle) _settings.MuteNotifications = MuteToggle.IsChecked == true;
         else if (sender == HotkeyToggle) _settings.HotkeyEnabled = HotkeyToggle.IsChecked == true;
         else if (sender == FullscreenToggle) _settings.HideInFullscreen = FullscreenToggle.IsChecked == true;
         else if (sender == AutoUpdateToggle) _settings.AutoUpdate = AutoUpdateToggle.IsChecked == true;

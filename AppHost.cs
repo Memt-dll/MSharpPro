@@ -118,6 +118,8 @@ public sealed class AppHost
     /// <param name="urgent">Sıradaki bildirimleri beklemeden hemen göster (ör. güncelleme).</param>
     public void Peek(PeekItem item, bool urgent = false)
     {
+        // Sessizdeyken çentikte bildirim açılmaz (güncelleme gibi acil olanlar hariç)
+        if (!urgent && Settings.MuteNotifications) return;
         foreach (var w in _windows.Values) w.Peek(item, urgent);
     }
 
@@ -225,7 +227,9 @@ public sealed class AppHost
         if (Settings.HotkeyEnabled) _hotkey.Start(); else _hotkey.Stop();
     }
 
-    private void UpdateTooltip() => _tray?.SetTooltip(Settings.Hidden ? "M#Pro (gizli · Ctrl+Win)" : "M#Pro");
+    private void UpdateTooltip() => _tray?.SetTooltip("M#Pro"
+        + (Settings.MuteNotifications ? " · sessiz" : "")
+        + (Settings.Hidden ? " · gizli (Ctrl+Win)" : ""));
 
     // ------------------------------------------------------------------ bildirimler
 
@@ -244,6 +248,12 @@ public sealed class AppHost
     }
 
     // ------------------------------------------------------------------ komutlar
+
+    public void ToggleMute()
+    {
+        Settings.MuteNotifications = !Settings.MuteNotifications;
+        Settings.Save();
+    }
 
     public void ToggleHidden()
     {
@@ -276,6 +286,7 @@ public sealed class AppHost
         {
             new TrayIcon.MenuItem("Ayarlar", OpenSettings),
             TrayIcon.MenuItem.Separator,
+            new TrayIcon.MenuItem("Bildirimleri sessize al", ToggleMute, Settings.MuteNotifications),
             new TrayIcon.MenuItem("Çentiği gizle\tCtrl+Win", ToggleHidden, Settings.Hidden),
             new TrayIcon.MenuItem("Bilgisayar açılınca başlat", () =>
             {

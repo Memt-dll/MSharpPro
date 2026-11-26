@@ -102,19 +102,20 @@
                             </Border>
                         </Grid>
                     </Border>
-                    <StackPanel x:Name="EqPanel" Orientation="Horizontal" HorizontalAlignment="Right"
+                    <!-- Sağ taraf: sessiz simgesi her zaman görünür; yanında ya ekolayzer (çalarken) ya da nokta + hava durumu -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock x:Name="CompactMuted" Text="&#xE7ED;" FontFamily="{StaticResource Icons}" FontSize="11"
+                                   Foreground="#FFB86B" VerticalAlignment="Center" Margin="0,0,7,0" Visibility="Collapsed"/>
+                    <StackPanel x:Name="EqPanel" Orientation="Horizontal"
                                 VerticalAlignment="Center" Visibility="Collapsed">
                         <Rectangle x:Name="Eq1" Style="{StaticResource EqBar}"/>
                         <Rectangle x:Name="Eq2" Style="{StaticResource EqBar}"/>
                         <Rectangle x:Name="Eq3" Style="{StaticResource EqBar}"/>
                         <Rectangle x:Name="Eq4" Style="{StaticResource EqBar}"/>
                     </StackPanel>
-                    <!-- Ortada saat (iPhone gibi) -->
-                    <TextBlock x:Name="CompactClock" HorizontalAlignment="Center" VerticalAlignment="Center"
-                               FontSize="13" FontWeight="SemiBold" Foreground="White"/>
 
                     <!-- Sağ taraf (müzik çalmıyorken): okunmamış bildirim noktası + hava durumu -->
-                    <StackPanel x:Name="CompactRight" Orientation="Horizontal" HorizontalAlignment="Right"
+                    <StackPanel x:Name="CompactRight" Orientation="Horizontal"
                                 VerticalAlignment="Center">
                         <Ellipse x:Name="CompactDot" Width="7" Height="7" VerticalAlignment="Center"
                                  Fill="{StaticResource AccentGradient}" Visibility="Collapsed"/>
@@ -125,6 +126,12 @@
                                        VerticalAlignment="Center" Margin="4,0,0,0"/>
                         </StackPanel>
                     </StackPanel>
+                    </StackPanel>
+
+                    <!-- Ortada saat -->
+                    <TextBlock x:Name="CompactClock" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               FontSize="13" FontWeight="SemiBold" Foreground="White"/>
+
                 </Grid>
 
                 <!-- ============ KISA BİLDİRİM (peek) ============ -->
@@ -162,43 +169,41 @@
 
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Bildirimleri sessize al -->
+                            <Button x:Name="MuteBtn" Style="{StaticResource HeaderIconBtn}" Click="Mute_Click"
+                                    ToolTip="Bildirimleri sessize al" Margin="0,0,8,0">
+                                <TextBlock x:Name="MuteGlyph" Text="&#xEA8F;"/>
+                            </Button>
                             <TextBlock x:Name="ClockText" FontSize="12" Foreground="#99FFFFFF" VerticalAlignment="Center"/>
                             <Image Source="Assets/icon-64.png" Width="18" Height="18" Margin="7,0,0,0"
                                    RenderOptions.BitmapScalingMode="HighQuality" ToolTip="M#Pro"/>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <RadioButton x:Name="TabMedia" Style="{StaticResource TabBtn}" IsChecked="True" Checked="Tab_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xEC4F;" FontFamily="{StaticResource Icons}" FontSize="11"
-                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
-                                    <TextBlock Text="Medya"/>
-                                </StackPanel>
+
+                        <!-- Sekmeler: yalnızca simge -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <RadioButton x:Name="TabMedia" Style="{StaticResource IconTab}" IsChecked="True"
+                                         Checked="Tab_Checked" ToolTip="Müzik">
+                                <TextBlock Text="&#xEC4F;"/>
                             </RadioButton>
-                            <RadioButton x:Name="TabBt" Style="{StaticResource TabBtn}" Checked="Tab_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xE702;" FontFamily="{StaticResource Icons}" FontSize="11"
-                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
-                                    <TextBlock Text="Bluetooth"/>
-                                </StackPanel>
+                            <RadioButton x:Name="TabBt" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                         ToolTip="Bluetooth">
+                                <TextBlock Text="&#xE702;"/>
                             </RadioButton>
-                            <RadioButton x:Name="TabNotif" Style="{StaticResource TabBtn}" Checked="Tab_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="&#xEA8F;" FontFamily="{StaticResource Icons}" FontSize="11"
-                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
-                                    <TextBlock Text="Bildirimler"/>
-                                    <Border x:Name="NotifBadge" Background="{StaticResource AccentGradient}" CornerRadius="7"
-                                            MinWidth="14" Height="14" Margin="5,0,0,0" Padding="4,0" Visibility="Collapsed">
-                                        <TextBlock x:Name="NotifBadgeText" FontSize="9.5" Foreground="White" FontWeight="SemiBold"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <RadioButton x:Name="TabNotif" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                         ToolTip="Bildirimler">
+                                <Grid Width="40" Height="30">
+                                    <TextBlock Text="&#xEA8F;" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border x:Name="NotifBadge" Background="#FF4D6D" CornerRadius="7" MinWidth="14" Height="14"
+                                            Padding="3,0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,1,3,0"
+                                            BorderBrush="Black" BorderThickness="1.5" Visibility="Collapsed">
+                                        <TextBlock x:Name="NotifBadgeText" FontFamily="Segoe UI" FontSize="8.5" FontWeight="Bold"
+                                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Border>
-                                </StackPanel>
+                                </Grid>
                             </RadioButton>
-                            <RadioButton x:Name="TabWeather" Style="{StaticResource TabBtn}" Checked="Tab_Checked">
-                                <StackPanel Orientation="Horizontal">
-                                    <Image x:Name="TabWeatherIcon" Width="13" Height="13" VerticalAlignment="Center"
-                                           Margin="0,0,5,0"/>
-                                    <TextBlock Text="Hava"/>
-                                </StackPanel>
+                            <RadioButton x:Name="TabWeather" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                         ToolTip="Hava durumu">
+                                <Image x:Name="TabWeatherIcon" Width="18" Height="18" RenderOptions.BitmapScalingMode="HighQuality"/>
                             </RadioButton>
                         </StackPanel>
                     </DockPanel>

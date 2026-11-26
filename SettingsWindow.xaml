@@ -468,6 +468,16 @@
 
                 <Border Style="{StaticResource Divider}"/>
 
+                <CheckBox x:Name="MuteToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                    <StackPanel>
+                        <TextBlock Text="Bildirimleri sessize al" Style="{StaticResource RowTitle}"/>
+                        <TextBlock Text="Çentikte açılır bildirim gösterilmez; gelen bildirimler yine listede birikir"
+                                   Style="{StaticResource RowDesc}"/>
+                    </StackPanel>
+                </CheckBox>
+
+                <Border Style="{StaticResource Divider}"/>
+
                 <CheckBox x:Name="HiddenToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
                     <StackPanel>
                         <TextBlock Text="Çentiği yukarı gizle" Style="{StaticResource RowTitle}"/>
