@@ -52,30 +52,14 @@ public sealed class UpdateService
         {
             Set(UpdateState.Checking, "Güncellemeler denetleniyor…");
             using var http = CreateClient();
-            using var doc = JsonDocument.Parse(await http.GetStringAsync(LatestApi));
-            var root = doc.RootElement;
 
-            string tag = root.GetProperty("tag_name").GetString() ?? "";
-            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
-                throw new InvalidOperationException($"Geçersiz sürüm etiketi: {tag}");
-            Latest = Normalize(latest);
-
-            _assetUrl = null;
-            foreach (var a in root.GetProperty("assets").EnumerateArray())
-            {
-                string name = a.GetProperty("name").GetString() ?? "";
-                if (name.StartsWith("MSharpPro-Setup", StringComparison.OrdinalIgnoreCase) &&
-                    name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    _assetName = name;
-                    _assetUrl = a.GetProperty("browser_download_url").GetString();
-                    _assetSize = a.GetProperty("size").GetInt64();
-                    break;
-                }
-            }
+            // Önce github.com'un normal "en son sürüm" adresi (saatlik sınırı yok); olmazsa API.
+            // API aynı internet bağlantısından saatte 60 istekle sınırlıdır; aşılınca denetim başarısız oluyordu.
+            if (!await TryLatestFromWebAsync() && !await TryLatestFromApiAsync(http))
+                throw new InvalidOperationException("Sürüm bilgisi alınamadı");
             LastCheck = DateTime.Now;
 
-            if (Latest <= Current || _assetUrl == null)
+            if (Latest == null || Latest <= Current || _assetUrl == null)
             {
                 Set(UpdateState.UpToDate, $"M#Pro güncel (sürüm {Fmt(Current)})");
                 return;
@@ -87,7 +71,9 @@ public sealed class UpdateService
         catch (Exception ex)
         {
             LastCheck = DateTime.Now;
-            Set(UpdateState.Error, "Güncelleme denetlenemedi (internet bağlantısını kontrol edin)");
+            Set(UpdateState.Error, ex is HttpRequestException { StatusCode: null } or TaskCanceledException
+                ? "Güncelleme denetlenemedi (internet bağlantısını kontrol edin)"
+                : "Güncelleme denetlenemedi, daha sonra tekrar denenecek");
             App.LogError(ex);
         }
         finally
@@ -129,6 +115,7 @@ public sealed class UpdateService
         using (var resp = await http.GetAsync(_assetUrl, HttpCompletionOption.ResponseHeadersRead))
         {
             resp.EnsureSuccessStatusCode();
+            if (_assetSize <= 0) _assetSize = resp.Content.Headers.ContentLength ?? 0;
             await using var src = await resp.Content.ReadAsStreamAsync();
             await using var dst = File.Create(file);
             var buf = new byte[81920];
@@ -157,6 +144,61 @@ public sealed class UpdateService
             UseShellExecute = true
         });
         System.Windows.Application.Current.Shutdown();
+    }
+
+    /// <summary>
+    /// github.com/…/releases/latest, en son sürümün sayfasına yönlendirir (…/releases/tag/v1.0.6).
+    /// Etiket bu yönlendirmeden okunur; kurulum dosyasının adresi sabittir.
+    /// </summary>
+    private async Task<bool> TryLatestFromWebAsync()
+    {
+        try
+        {
+            using var handler = new HttpClientHandler { AllowAutoRedirect = false };
+            using var web = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+            web.DefaultRequestHeaders.UserAgent.ParseAdd("MSharpPro-Updater");
+            using var resp = await web.GetAsync($"https://github.com/{Repo}/releases/latest",
+                HttpCompletionOption.ResponseHeadersRead);
+            string? loc = resp.Headers.Location?.ToString();
+            int i = loc?.LastIndexOf("/tag/", StringComparison.Ordinal) ?? -1;
+            if (i < 0) return false;
+            string tag = Uri.UnescapeDataString(loc![(i + 5)..]);
+            if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest)) return false;
+
+            Latest = Normalize(latest);
+            _assetName = $"MSharpPro-Setup-{Fmt(Latest)}.exe";
+            _assetUrl = $"https://github.com/{Repo}/releases/download/{tag}/{_assetName}";
+            _assetSize = 0; // indirirken Content-Length'ten alınır
+            return true;
+        }
+        catch (HttpRequestException) { return false; }
+        catch (TaskCanceledException) { return false; }
+    }
+
+    private async Task<bool> TryLatestFromApiAsync(HttpClient http)
+    {
+        using var doc = JsonDocument.Parse(await http.GetStringAsync(LatestApi));
+        var root = doc.RootElement;
+
+        string tag = root.GetProperty("tag_name").GetString() ?? "";
+        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
+            throw new InvalidOperationException($"Geçersiz sürüm etiketi: {tag}");
+        Latest = Normalize(latest);
+
+        _assetUrl = null;
+        foreach (var a in root.GetProperty("assets").EnumerateArray())
+        {
+            string name = a.GetProperty("name").GetString() ?? "";
+            if (name.StartsWith("MSharpPro-Setup", StringComparison.OrdinalIgnoreCase) &&
+                name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                _assetName = name;
+                _assetUrl = a.GetProperty("browser_download_url").GetString();
+                _assetSize = a.GetProperty("size").GetInt64();
+                break;
+            }
+        }
+        return true;
     }
 
     private static HttpClient CreateClient()
