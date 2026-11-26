@@ -427,6 +427,8 @@ public partial class MainWindow : Window
     {
         bool show = _mode == Mode.Expanded && _media.AmbientArt != null;
         AmbientBrush.ImageSource = _media.AmbientArt;
+        // Kapak arka planı yokken (müzik çalmıyor) panelin üstünde hafif parıltı
+        GlowLayer.Visibility = Vis(_mode == Mode.Expanded && !show);
         if (show == (AmbientLayer.Visibility == Visibility.Visible)) return;
 
         if (show)
