@@ -25,6 +25,7 @@ public sealed class NotificationService
 
     public async Task<bool> StartAsync()
     {
+        if (Demo.On) return true;
         try
         {
             _listener = UserNotificationListener.Current;

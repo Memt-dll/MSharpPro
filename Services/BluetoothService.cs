@@ -52,6 +52,17 @@ public sealed class BluetoothService
 
     public void Start()
     {
+        if (Demo.On)
+        {
+            foreach (var (name, glyph, on) in new[] { ("AirPods Pro", "", true), ("MX Keys", "", true), ("Galaxy Buds2", "", false) })
+            {
+                var d = new BtDevice { Name = name, Glyph = glyph };
+                d.Ids.Add(name);
+                if (on) d.ConnectedIds.Add(name);
+                Devices.Add(d);
+            }
+            return;
+        }
         try { AddWatcher(BluetoothDevice.GetDeviceSelectorFromPairingState(true)); } catch { }
         try { AddWatcher(BluetoothLEDevice.GetDeviceSelectorFromPairingState(true)); } catch { }
     }

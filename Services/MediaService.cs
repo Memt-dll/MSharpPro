@@ -27,7 +27,7 @@ public sealed class MediaService
     public ImageSource? Art { get; private set; }
     /// <summary>Bulanık arka plan için çok küçük çözülmüş kapak.</summary>
     public ImageSource? AmbientArt { get; private set; }
-    public bool HasMedia => _session != null && Title.Length > 0;
+    public bool HasMedia => (_session != null || Demo.On) && Title.Length > 0;
 
     /// <summary>Herhangi bir bilgi değişti (UI thread).</summary>
     public event Action? Changed;
@@ -45,6 +45,15 @@ public sealed class MediaService
 
     public async Task StartAsync()
     {
+        if (Demo.On)
+        {
+            Title = Demo.Title; Artist = Demo.Artist; AppName = Demo.App;
+            IsPlaying = true; CanSeek = true;
+            Art = AmbientArt = Demo.Cover();
+            _ready = true;
+            Changed?.Invoke();
+            return;
+        }
         try
         {
             _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
@@ -230,6 +239,7 @@ public sealed class MediaService
     /// <summary>Şarkının o anki konumu ve toplam süresi (bilinmiyorsa null).</summary>
     public (TimeSpan Position, TimeSpan Duration)? GetProgress()
     {
+        if (Demo.On) return (Demo.Position, Demo.Duration);
         try
         {
             var t = _session?.GetTimelineProperties();

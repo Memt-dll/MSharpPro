@@ -123,15 +123,32 @@ internal static class ImageUtil
     }
 }
 
+/// <summary>
+/// "Bilgisayar açılınca başlat". GitHub sürümünde kayıt defteri (Run anahtarı),
+/// Microsoft Store sürümünde (MSIX paketi) Windows'un başlangıç görevi (StartupTask) kullanılır;
+/// paketli uygulamalarda Run anahtarı çalışmaz.
+/// </summary>
 internal static class Startup
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string Name = "M#Pro";
+    /// <summary>Package.appxmanifest içindeki StartupTask kimliğiyle aynı olmalı.</summary>
+    private const string TaskId = "MSharpProStartup";
 
     public static bool IsEnabled
     {
         get
         {
+            if (Package.IsPackaged)
+            {
+                try
+                {
+                    var task = Task.Run(async () => await global::Windows.ApplicationModel.StartupTask.GetAsync(TaskId)).Result;
+                    return task.State is global::Windows.ApplicationModel.StartupTaskState.Enabled
+                        or global::Windows.ApplicationModel.StartupTaskState.EnabledByPolicy;
+                }
+                catch { return false; }
+            }
             using var key = Registry.CurrentUser.OpenSubKey(RunKey);
             return key?.GetValue(Name) != null;
         }
@@ -139,9 +156,44 @@ internal static class Startup
 
     public static void Set(bool enabled)
     {
+        if (Package.IsPackaged)
+        {
+            try
+            {
+                Task.Run(async () =>
+                {
+                    var task = await global::Windows.ApplicationModel.StartupTask.GetAsync(TaskId);
+                    if (enabled) await task.RequestEnableAsync();
+                    else task.Disable();
+                }).Wait();
+            }
+            catch (Exception ex) { App.LogError(ex); }
+            return;
+        }
         using var key = Registry.CurrentUser.OpenSubKey(RunKey, true);
         if (key == null) return;
         if (enabled) key.SetValue(Name, $"\"{Environment.ProcessPath}\"");
         else key.DeleteValue(Name, false);
+    }
+}
+
+/// <summary>Uygulama Microsoft Store'dan (MSIX paketi olarak) mı kuruldu.</summary>
+internal static class Package
+{
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackageFullName(ref int length, System.Text.StringBuilder? name);
+
+    private const int APPMODEL_ERROR_NO_PACKAGE = 15700;
+
+    public static bool IsPackaged { get; } = Detect();
+
+    private static bool Detect()
+    {
+        try
+        {
+            int len = 0;
+            return GetCurrentPackageFullName(ref len, null) != APPMODEL_ERROR_NO_PACKAGE;
+        }
+        catch { return false; }
     }
 }

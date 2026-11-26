@@ -212,6 +212,17 @@ public partial class SettingsWindow : Window
 
     private void UpdateUpdateUi()
     {
+        if (_updates.IsStoreVersion)
+        {
+            // Store sürümü: güncellemeleri Microsoft Store yapar
+            AutoUpdateToggle.Visibility = Visibility.Collapsed;
+            InstallUpdateBtn.Visibility = Visibility.Collapsed;
+            UpdateStatus.Text = $"Yüklü sürüm: {UpdateService.Fmt(_updates.Current)}";
+            UpdateDetail.Text = "Güncellemeler Microsoft Store üzerinden otomatik gelir";
+            CheckUpdateBtnText.Text = "Store'da aç";
+            return;
+        }
+
         var s = _updates.State;
         UpdateStatus.Text = s == UpdateService.UpdateState.Idle
             ? $"Yüklü sürüm: {UpdateService.Fmt(_updates.Current)}"
@@ -228,7 +239,10 @@ public partial class SettingsWindow : Window
     }
 
     private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
-        => await _updates.CheckAsync(install: false);
+    {
+        if (_updates.IsStoreVersion) AppHost.OpenStorePage();
+        else await _updates.CheckAsync(install: false);
+    }
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
         => await _updates.InstallNowAsync();

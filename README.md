@@ -27,9 +27,9 @@ Kaldırmak için: **Ayarlar › Uygulamalar › M#Pro › Kaldır**.
 
 ## Özellikler
 - **Çentik:** Ekranın üst ortasında durur. Çalan şarkının kapağını ve hareketli bir ekolayzer gösterir; okunmamış bildirim varsa küçük bir nokta çıkar.
-- **İki görünüm stili:** ekranın üstüne yapışık **Çentik** ya da iPhone'daki gibi yüzen, oval **Dynamic Island**. Kompakt hâlin ortasında saat gösterilir (kapatılabilir).
+- **İki görünüm stili:** ekranın üstüne yapışık **Çentik** ya da yüzen, oval **Ada**. Kompakt hâlin ortasında saat gösterilir (kapatılabilir).
 - **Fareyle üzerine gelince açılır:** Medya / Bluetooth / Bildirimler / Hava sekmeleri.
-- **Hava durumu:** Müzik çalmıyorken çentikte sıcaklık; "Hava" sekmesinde hava durumuna göre renklenen kart ve 4 günlük tahmin (iPhone hava durumu gibi aralık çubuklarıyla). Veri [Open-Meteo](https://open-meteo.com)'dan alınır (ücretsiz, anahtar gerektirmez), 30 dakikada bir yenilenir. Konum: Windows konumu ya da ayarlardan aranan şehir.
+- **Hava durumu:** Müzik çalmıyorken çentikte sıcaklık; "Hava" sekmesinde hava durumuna göre renklenen kart ve 4 günlük tahmin (sıcaklık aralığı çubuklarıyla). Veri [Open-Meteo](https://open-meteo.com)'dan alınır (ücretsiz, anahtar gerektirmez), 30 dakikada bir yenilenir. Konum: Windows konumu ya da ayarlardan aranan şehir.
 - **Medya:** Kapak resmi, şarkı adı, sanatçı, uygulama, ilerleme çubuğu; önceki / oynat-duraklat / sonraki. Arka planda kapak resminden bulanık bir ortam rengi oluşur. Spotify, YouTube (Chrome / Edge / Firefox), Medya Oynatıcı vb. desteklenir; birden fazla kaynak varsa çalan otomatik seçilir.
 - **İleri / geri sarma:** İlerleme çubuğuna tıklayın ya da sürükleyin; fare tekerleğiyle ±10 saniye.
 - **Birden fazla ekran:** Çentik ana ekranda, seçilen bir ekranda ya da tüm ekranlarda gösterilebilir. Servisler tek kez çalışır, her ekran yalnızca hafif bir pencere ekler.

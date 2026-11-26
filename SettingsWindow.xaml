@@ -352,7 +352,7 @@
             <StackPanel>
                 <StackPanel Margin="0,12">
                     <TextBlock Text="Görünüm stili" Style="{StaticResource RowTitle}"/>
-                    <TextBlock Text="Ekranın üstüne yapışık çentik ya da iPhone'daki gibi yüzen oval ada"
+                    <TextBlock Text="Ekranın üstüne yapışık çentik ya da yüzen oval ada"
                                Style="{StaticResource RowDesc}"/>
                     <UniformGrid Columns="2" Margin="0,10,0,0">
                         <RadioButton x:Name="ShapeNotchBtn" Style="{StaticResource ShapeOption}" Margin="0,0,6,0"
@@ -372,7 +372,7 @@
                                     <Border Width="74" Height="17" Background="Black" CornerRadius="8.5" Margin="0,6,0,0"
                                             VerticalAlignment="Top" BorderBrush="#558A7CFF" BorderThickness="1"/>
                                 </Border>
-                                <TextBlock Text="Dynamic Island" FontSize="12.5" HorizontalAlignment="Center" Margin="0,7,0,0"/>
+                                <TextBlock Text="Ada" FontSize="12.5" HorizontalAlignment="Center" Margin="0,7,0,0"/>
                             </StackPanel>
                         </RadioButton>
                     </UniformGrid>
@@ -383,7 +383,7 @@
                 <CheckBox x:Name="ClockToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
                     <StackPanel>
                         <TextBlock Text="Ortada saati göster" Style="{StaticResource RowTitle}"/>
-                        <TextBlock Text="Kompakt çentiğin ortasında saat (iPhone gibi)" Style="{StaticResource RowDesc}"/>
+                        <TextBlock Text="Kompakt çentiğin ortasında saat" Style="{StaticResource RowDesc}"/>
                     </StackPanel>
                 </CheckBox>
 
@@ -589,7 +589,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE72C;" FontFamily="{StaticResource Icons}" FontSize="12"
                                            VerticalAlignment="Center" Margin="0,1,6,0"/>
-                                <TextBlock Text="Şimdi denetle"/>
+                                <TextBlock x:Name="CheckUpdateBtnText" Text="Şimdi denetle"/>
                             </StackPanel>
                         </Button>
                     </StackPanel>

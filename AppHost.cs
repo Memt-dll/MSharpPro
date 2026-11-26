@@ -95,9 +95,18 @@ public sealed class AppHost
         await Media.StartAsync();
 
         NotificationAccess = await Notifications.StartAsync();
+        if (Demo.On)
+        {
+            foreach (var n in Demo.Notifications()) NotifItems.Add(n);
+            Unread = 2;
+            // Ekran görüntüsünde kullanıcının gerçek konumu görünmesin (kaydedilmez)
+            Settings.WeatherCity = "İstanbul, Türkiye";
+            Settings.WeatherLat = 41.01;
+            Settings.WeatherLon = 28.979;
+        }
         NotificationsChanged?.Invoke();
 
-        _updateTimer.Start();
+        if (!Updates.IsStoreVersion) _updateTimer.Start();
         _weatherKey = WeatherKey();
         if (Settings.WeatherEnabled)
         {
@@ -190,7 +199,7 @@ public sealed class AppHost
         ApplyHotkey();
         UpdateTooltip();
         RebuildWindows();
-        if (Settings.AutoUpdate && !_updateTimer.IsEnabled) _updateTimer.Start();
+        if (Settings.AutoUpdate && !Updates.IsStoreVersion && !_updateTimer.IsEnabled) _updateTimer.Start();
 
         // Hava durumu: açıldıysa ya da konum değiştiyse hemen yenile
         string key = WeatherKey();
@@ -273,10 +282,26 @@ public sealed class AppHost
                 Settings.StartWithWindows = !Settings.StartWithWindows;
                 Settings.Save();
             }, Settings.StartWithWindows),
-            new TrayIcon.MenuItem("Güncellemeleri denetle", () => _ = Updates.CheckAsync(install: true)),
+            new TrayIcon.MenuItem(Updates.IsStoreVersion ? "Microsoft Store'da aç" : "Güncellemeleri denetle", () =>
+            {
+                if (Updates.IsStoreVersion) OpenStorePage();
+                else _ = Updates.CheckAsync(install: true);
+            }),
             TrayIcon.MenuItem.Separator,
             new TrayIcon.MenuItem("Çıkış", () => Application.Current.Shutdown())
         });
+    }
+
+    /// <summary>Store sürümünde uygulamanın Store sayfasını (güncellemeler, puanlama) açar.</summary>
+    public static void OpenStorePage()
+    {
+        try
+        {
+            string pfn = global::Windows.ApplicationModel.Package.Current.Id.FamilyName;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                $"ms-windows-store://pdp/?PFN={pfn}") { UseShellExecute = true });
+        }
+        catch (Exception ex) { App.LogError(ex); }
     }
 
     public void Shutdown()

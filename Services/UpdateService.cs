@@ -37,10 +37,16 @@ public sealed class UpdateService
     private long _assetSize;
     private bool _busy;
 
+    /// <summary>
+    /// Microsoft Store sürümü: güncellemeleri Store yapar; uygulama kendini güncellemez
+    /// (Store kuralı), bu yüzden GitHub denetimi tamamen kapalıdır.
+    /// </summary>
+    public bool IsStoreVersion => Package.IsPackaged;
+
     /// <summary>Yeni sürüm var mı diye bakar; <paramref name="install"/> ise bulunca indirip kurar.</summary>
     public async Task CheckAsync(bool install)
     {
-        if (_busy) return;
+        if (_busy || IsStoreVersion) return;
         _busy = true;
         try
         {
@@ -93,7 +99,7 @@ public sealed class UpdateService
     /// <summary>Kullanıcı "Şimdi güncelle" dediğinde.</summary>
     public async Task InstallNowAsync()
     {
-        if (_busy) return;
+        if (_busy || IsStoreVersion) return;
         if (_assetUrl == null) { await CheckAsync(install: true); return; }
         _busy = true;
         try
