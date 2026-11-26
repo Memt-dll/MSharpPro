@@ -212,9 +212,9 @@ public partial class MainWindow : Window
         Island.Margin = IsIsland ? new Thickness(0, 8, 0, 0) : new Thickness(0);
         Island.BorderThickness = IsIsland ? new Thickness(1) : new Thickness(1, 0, 1, 1);
         Island.BorderBrush = IsIsland ? IslandBorder : NotchBorder;
-        // iPhone'daki ada saf siyahtır
-        if (IsIsland) Island.Background = Brushes.Black;
-        else Island.ClearValue(System.Windows.Controls.Border.BackgroundProperty);
+        // İki görünümde de saf siyah zemin. (Önceden çentikte ClearValue ile XAML'deki zemin de siliniyordu:
+        // adadan çentiğe geçince çentik şeffaf kalıyor, fare içinden geçtiği için üzerine gelince açılmıyordu.)
+        Island.Background = Brushes.Black;
         if (IsLoaded) SetMode(_mode);
     }
 
