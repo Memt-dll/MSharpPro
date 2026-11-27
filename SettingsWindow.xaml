@@ -995,5 +995,34 @@
                 </Grid>
             </ScrollViewer>
         </Grid>
+
+        <!-- ================= ONAY PENCERESİ (varsayılanlara dön) ================= -->
+        <Grid x:Name="ConfirmOverlay" Grid.ColumnSpan="2" Background="#99000000" Visibility="Collapsed"
+              MouseLeftButtonDown="ConfirmOverlay_MouseDown">
+            <Border Width="400" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource CardBorder}"
+                    BorderThickness="1" CornerRadius="16" Padding="24,22,24,18"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" MouseLeftButtonDown="ConfirmCard_MouseDown">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="6" Opacity="0.35"/>
+                </Border.Effect>
+                <StackPanel>
+                    <Border Width="40" Height="40" CornerRadius="20" Background="{DynamicResource ControlBg}"
+                            HorizontalAlignment="Left">
+                        <TextBlock Text="&#xE777;" FontFamily="{StaticResource Icons}" FontSize="17"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Varsayılanlara dönülsün mü?" FontSize="17" FontWeight="SemiBold" Margin="0,14,0,0"/>
+                    <TextBlock Text="Görünüm, sekmeler, davranış ve göstergelerdeki tüm ayarlarınız ilk hâline döner. Bu işlem geri alınamaz."
+                               Style="{StaticResource RowDesc}" FontSize="12.5" Margin="0,6,0,0"/>
+                    <TextBlock Text="Seçtiğiniz şehir ve arayüz dili korunur."
+                               Style="{StaticResource RowDesc}" FontSize="12" Margin="0,4,0,0"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                        <Button x:Name="ConfirmCancelBtn" Style="{StaticResource GhostButton}" Content="Vazgeç" Margin="0,0,8,0"
+                                Click="ConfirmCancel_Click" IsCancel="True"/>
+                        <Button Style="{StaticResource AccentButton}" Content="Varsayılanlara dön" Click="ConfirmReset_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

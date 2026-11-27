@@ -205,6 +205,12 @@ public static partial class Loc
         ["Davranış"] = "Behavior",
         ["Güncelleme"] = "Updates",
         ["Varsayılanlara dön"] = "Reset to defaults",
+        ["Varsayılanlara dönülsün mü?"] = "Reset to defaults?",
+        ["Görünüm, sekmeler, davranış ve göstergelerdeki tüm ayarlarınız ilk hâline döner. Bu işlem geri alınamaz."] =
+            "All your appearance, tab, behavior and indicator settings go back to how they were at first. This can't be undone.",
+        ["Seçtiğiniz şehir ve arayüz dili korunur."] = "Your chosen city and interface language are kept.",
+        ["Vazgeç"] = "Cancel",
+        ["Ayarlar varsayılanlara döndü"] = "Settings were reset to defaults",
         ["Ayarları dışa aktar"] = "Export settings",
         ["Ayarları içe aktar"] = "Import settings",
         ["Ayarlar kaydedildi"] = "Settings saved",

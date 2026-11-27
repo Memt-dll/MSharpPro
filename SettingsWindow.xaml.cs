@@ -572,10 +572,27 @@ public partial class SettingsWindow : Window
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
         => await _updates.InstallNowAsync();
 
+    /// <summary>Hemen sıfırlamaz: önce onay penceresi gösterir (yanlışlıkla basılınca ayarlar gitmesin).</summary>
     private void Reset_Click(object sender, RoutedEventArgs e)
     {
+        ConfirmOverlay.Visibility = Visibility.Visible;
+        ConfirmCancelBtn.Focus(); // Enter'a basılırsa varsayılan "Vazgeç" olsun
+    }
+
+    private void ConfirmReset_Click(object sender, RoutedEventArgs e)
+    {
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
         _settings.ResetToDefaults();
         LoadValues();
         ApplyTheme();
+        ShowBackupStatus(L("Ayarlar varsayılanlara döndü"));
     }
+
+    private void ConfirmCancel_Click(object sender, RoutedEventArgs e) => ConfirmOverlay.Visibility = Visibility.Collapsed;
+
+    // Kartın dışındaki karartılmış alana tıklamak da vazgeçmek demek
+    private void ConfirmOverlay_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
+
+    private void ConfirmCard_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => e.Handled = true;
 }
