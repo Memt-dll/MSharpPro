@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/Memt-dll/MSharpPro/raw/main/Setup/MSharpPro-Setup.exe">
-    <img src="https://img.shields.io/badge/%E2%AC%87%20M%23Pro%20Kurulumunu%20%C4%B0ndir-Windows%2010%20%2F%2011-5AB8FF?style=for-the-badge" alt="M#Pro Kurulumunu İndir"/>
+    <img src="https://img.shields.io/badge/%E2%AC%87%20M%23Pro%20Kurulumunu%20%C4%B0ndir-Windows%2010%20%2F%2011-222622?style=for-the-badge" alt="M#Pro Kurulumunu İndir"/>
   </a>
 </p>
 

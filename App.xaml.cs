@@ -6,6 +6,8 @@ public partial class App : Application
 {
     private const string MutexName = "MSharpPro.SingleInstance";
     private const string ShowEventName = "MSharpPro.ShowSettings";
+    /// <summary>Uygulama kendini yeniden başlatırken yeni kopyaya verilen argüman.</summary>
+    public const string RestartArg = "--restarting";
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool AllowSetForegroundWindow(int processId);
@@ -17,6 +19,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         _mutex = new Mutex(true, MutexName, out bool created);
+        // Yeniden başlatma: eski kopya kapanıp kilidi bırakana kadar bekle (en fazla ~10 sn)
+        for (int i = 0; !created && e.Args.Contains(RestartArg) && i < 40; i++)
+        {
+            _mutex.Dispose();
+            Thread.Sleep(250);
+            _mutex = new Mutex(true, MutexName, out created);
+        }
         if (!created)
         {
             // Zaten çalışıyor: açık olan kopyaya "ayarları göster" sinyali gönder ve çık

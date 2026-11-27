@@ -26,6 +26,39 @@ public sealed class AppSettings
     /// <summary>Ayarlar penceresinin teması: "System" (Windows'taki açık/koyu mod), "Light" ya da "Dark".</summary>
     public string Theme { get; set; } = ThemeSystem;
 
+    public const string LangSystem = "System";
+    /// <summary>Arayüz dili: "System" (Windows dili Türkçe ise Türkçe, değilse İngilizce), "tr" ya da "en".</summary>
+    public string Language { get; set; } = LangSystem;
+
+    /// <summary>Çentik sekmelerinin kimlikleri, varsayılan sırayla.</summary>
+    public static readonly string[] AllTabs =
+        { "media", "lyrics", "bt", "notif", "weather", "timer", "calendar", "clipboard", "shelf", "system" };
+    /// <summary>Sekmelerin sırası (eksik olanlar sona eklenir).</summary>
+    public List<string> TabOrder { get; set; } = AllTabs.ToList();
+    /// <summary>Gizlenen sekmeler.</summary>
+    public List<string> HiddenTabs { get; set; } = new();
+
+    /// <summary>Ses / parlaklık değişince çentikte gösterge.</summary>
+    public bool ShowOsd { get; set; } = true;
+    /// <summary>Şarj aleti takılınca / çıkınca ve pil azalınca çentikte uyarı.</summary>
+    public bool ShowBattery { get; set; } = true;
+    /// <summary>Mikrofon / kamera kullanılırken çentikte renkli nokta.</summary>
+    public bool ShowPrivacyDots { get; set; } = true;
+    /// <summary>Yaklaşan takvim etkinliğinden 5 dakika önce uyarı.</summary>
+    public bool CalendarReminders { get; set; } = true;
+    /// <summary>Kopyalanan metinleri (yalnızca bellekte) listele.</summary>
+    public bool ClipboardHistory { get; set; } = true;
+    /// <summary>Şarkı sözlerini LRCLIB'den al.</summary>
+    public bool LyricsEnabled { get; set; } = true;
+    /// <summary>Çentikte açılır bildirimi gösterilmeyen uygulamalar (bildirimleri yine listede birikir).</summary>
+    public List<string> MutedApps { get; set; } = new();
+    /// <summary>Zamanlayıcı: Pomodoro odak / mola süresi (dakika).</summary>
+    public int PomodoroFocus { get; set; } = 25;
+    public int PomodoroBreak { get; set; } = 5;
+
+    /// <summary>Görünür sekmeler, kullanıcının sırasıyla.</summary>
+    public IEnumerable<string> VisibleTabs => TabOrder.Where(t => !HiddenTabs.Contains(t));
+
     /// <summary>En son çalışan sürüm: güncellemeden sonra "güncellendi" bildirimi göstermek için.</summary>
     public string LastVersion { get; set; } = "";
 
@@ -75,13 +108,48 @@ public sealed class AppSettings
                     if (string.IsNullOrWhiteSpace(s.FontFamily)) s.FontFamily = DefaultFont;
                     if (string.IsNullOrWhiteSpace(s.Display)) s.Display = DisplayPrimary;
                     if (s.Shape != ShapeIsland) s.Shape = ShapeNotch;
-                    if (s.Theme != ThemeLight && s.Theme != ThemeDark) s.Theme = ThemeSystem;
+                    s.Normalize();
                     return s;
                 }
             }
         }
         catch { /* bozuk dosya: varsayılanlar */ }
         return new AppSettings();
+    }
+
+    /// <summary>Dosyadan gelen değerleri geçerli aralığa çeker, eksik sekmeleri ekler.</summary>
+    private void Normalize()
+    {
+        if (Theme != ThemeLight && Theme != ThemeDark) Theme = ThemeSystem;
+        if (Language != "tr" && Language != "en") Language = LangSystem;
+        TabOrder = (TabOrder ?? new()).Where(AllTabs.Contains).Distinct().ToList();
+        TabOrder.AddRange(AllTabs.Where(t => !TabOrder.Contains(t)));
+        HiddenTabs = (HiddenTabs ?? new()).Where(AllTabs.Contains).Distinct().ToList();
+        MutedApps = (MutedApps ?? new()).Where(a => !string.IsNullOrWhiteSpace(a)).Distinct().ToList();
+        PomodoroFocus = Math.Clamp(PomodoroFocus, 1, 120);
+        PomodoroBreak = Math.Clamp(PomodoroBreak, 1, 60);
+    }
+
+    /// <summary>Ayarları bir dosyaya yedekler.</summary>
+    public void ExportTo(string path) =>
+        File.WriteAllText(path, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+
+    /// <summary>Yedek dosyasındaki ayarları yükler (sürüm bilgisi hariç) ve kaydeder. Dosya geçersizse false.</summary>
+    public bool ImportFrom(string path)
+    {
+        AppSettings? s;
+        try { s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path)); }
+        catch { return false; }
+        if (s == null) return false;
+        s.Normalize();
+        foreach (var p in typeof(AppSettings).GetProperties())
+        {
+            if (!p.CanWrite || p.Name == nameof(LastVersion) || p.Name == nameof(StartWithWindows)) continue;
+            p.SetValue(this, p.GetValue(s));
+        }
+        Scale = Math.Clamp(Scale, MinScale, MaxScale);
+        Save();
+        return true;
     }
 
     /// <summary>Kaydet ve değişikliği bildir.</summary>
@@ -110,6 +178,18 @@ public sealed class AppSettings
         ShowClock = d.ShowClock;
         WeatherEnabled = d.WeatherEnabled;
         Theme = d.Theme;
+        TabOrder = d.TabOrder;
+        HiddenTabs = d.HiddenTabs;
+        ShowOsd = d.ShowOsd;
+        ShowBattery = d.ShowBattery;
+        ShowPrivacyDots = d.ShowPrivacyDots;
+        CalendarReminders = d.CalendarReminders;
+        ClipboardHistory = d.ClipboardHistory;
+        LyricsEnabled = d.LyricsEnabled;
+        MutedApps = d.MutedApps;
+        PomodoroFocus = d.PomodoroFocus;
+        PomodoroBreak = d.PomodoroBreak;
+        // Dil sıfırlanmaz: yeniden başlatma gerektirir
         // Seçilen şehir sıfırlanmaz: kullanıcıyı yeniden aratmamak için korunur
         Save();
     }

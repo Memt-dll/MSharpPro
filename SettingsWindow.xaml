@@ -470,7 +470,9 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Alt: varsayılanlar -->
+                <!-- Alt: yedekleme ve varsayılanlar -->
+                <TextBlock x:Name="BackupStatus" DockPanel.Dock="Bottom" Style="{StaticResource RowDesc}" Margin="12,4,0,0"
+                           Visibility="Collapsed"/>
                 <Button DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
                         Click="Reset_Click">
                     <StackPanel Orientation="Horizontal">
@@ -479,11 +481,29 @@
                         <TextBlock Text="Varsayılanlara dön"/>
                     </StackPanel>
                 </Button>
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                        Click="Import_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8B5;" FontFamily="{StaticResource Icons}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,1,10,0"/>
+                        <TextBlock Text="Ayarları içe aktar"/>
+                    </StackPanel>
+                </Button>
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left"
+                        Click="Export_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEDE1;" FontFamily="{StaticResource Icons}" FontSize="13"
+                                   VerticalAlignment="Center" Margin="0,1,10,0"/>
+                        <TextBlock Text="Ayarları dışa aktar"/>
+                    </StackPanel>
+                </Button>
 
                 <!-- Bölümler -->
                 <StackPanel>
                     <RadioButton x:Name="NavLook" Style="{StaticResource NavItem}" Tag="&#xE771;" Content="Görünüm"
                                  IsChecked="True" Checked="Nav_Checked"/>
+                    <RadioButton x:Name="NavTabs" Style="{StaticResource NavItem}" Tag="&#xE8A9;" Content="Sekmeler"
+                                 Checked="Nav_Checked"/>
                     <RadioButton x:Name="NavBehavior" Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Davranış"
                                  Checked="Nav_Checked"/>
                     <RadioButton x:Name="NavWeather" Style="{StaticResource NavItem}" Tag="&#xE753;" Content="Hava durumu"
@@ -537,6 +557,38 @@
                                     </StackPanel>
                                 </Border>
                             </Grid>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid Margin="0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="Dil" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Sistem: Windows Türkçe ise Türkçe, değilse İngilizce" Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Background="{DynamicResource ControlBg}" CornerRadius="9"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Padding="3"
+                                            VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton x:Name="LangSystemBtn" Style="{StaticResource Segment}" GroupName="lang"
+                                                         Tag="&#xE7F4;" Content="Sistem" Checked="Lang_Checked"/>
+                                            <RadioButton x:Name="LangTrBtn" Style="{StaticResource Segment}" GroupName="lang"
+                                                         Tag="&#xE775;" Content="Türkçe" Checked="Lang_Checked"/>
+                                            <RadioButton x:Name="LangEnBtn" Style="{StaticResource Segment}" GroupName="lang"
+                                                         Tag="&#xE775;" Content="English" Checked="Lang_Checked"/>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                                <DockPanel x:Name="LangRestartRow" Margin="0,0,0,12" Visibility="Collapsed">
+                                    <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}" Content="Yeniden başlat"
+                                            Click="Restart_Click"/>
+                                    <TextBlock Text="Dil, M#Pro yeniden başlatılınca değişir" Style="{StaticResource RowDesc}"
+                                               VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </StackPanel>
                         </Border>
 
                         <TextBlock Text="Çentik" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
@@ -649,6 +701,55 @@
                         </Border>
                     </StackPanel>
 
+                    <!-- ================= SEKMELER ================= -->
+                    <StackPanel x:Name="PageTabs" Visibility="Collapsed">
+                        <TextBlock Text="Sıra ve görünürlük" Style="{StaticResource GroupTitle}"/>
+                        <Border Style="{StaticResource Card}" Padding="12,6">
+                            <StackPanel x:Name="TabsList"/>
+                        </Border>
+
+                        <TextBlock Text="Sekme seçenekleri" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <CheckBox x:Name="LyricsToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Şarkı sözleri" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="LRCLIB'den zamanlı olarak alınır; bunun için şarkı adı ve sanatçı bu servise gönderilir"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <Border Style="{StaticResource Divider}"/>
+
+                                <CheckBox x:Name="ClipToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Kopyalananlar" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Son 12 kopyalanan metin yalnızca bellekte tutulur; parola yöneticilerinin kopyaları alınmaz"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <Border Style="{StaticResource Divider}"/>
+
+                                <Grid Margin="0,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Pomodoro" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Odak ve mola süresi (dakika)" Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                    <ComboBox x:Name="FocusCombo" Grid.Column="1" Style="{StaticResource DarkCombo}" Margin="0,0,8,0"
+                                              SelectionChanged="Pomodoro_SelectionChanged"/>
+                                    <ComboBox x:Name="BreakCombo" Grid.Column="2" Style="{StaticResource DarkCombo}"
+                                              SelectionChanged="Pomodoro_SelectionChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
                     <!-- ================= DAVRANIŞ ================= -->
                     <StackPanel x:Name="PageBehavior" Visibility="Collapsed">
                         <Border Style="{StaticResource Card}">
@@ -718,6 +819,58 @@
                                 </CheckBox>
                             </StackPanel>
                         </Border>
+
+                        <TextBlock Text="Göstergeler" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <CheckBox x:Name="OsdToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Ses ve parlaklık" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Ses ya da ekran parlaklığı değişince çentikte düzey çubuğu gösterilir"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <Border Style="{StaticResource Divider}"/>
+
+                                <CheckBox x:Name="BatteryToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Pil" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Şarj aleti takılınca / çıkarılınca ve pil %20 ile %10'a düşünce uyarır"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <Border Style="{StaticResource Divider}"/>
+
+                                <CheckBox x:Name="PrivacyToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Mikrofon ve kamera" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Bir uygulama kullanırken çentikte turuncu (mikrofon) ya da yeşil (kamera) nokta yanar"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <Border Style="{StaticResource Divider}"/>
+
+                                <CheckBox x:Name="CalendarToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                    <StackPanel>
+                                        <TextBlock Text="Takvim hatırlatıcısı" Style="{StaticResource RowTitle}"/>
+                                        <TextBlock Text="Windows takvimindeki etkinlikten 5 dakika önce çentikte haber verir"
+                                                   Style="{StaticResource RowDesc}"/>
+                                    </StackPanel>
+                                </CheckBox>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Sessize alınan uygulamalar" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Margin="0,8">
+                                <TextBlock x:Name="MutedEmpty" Style="{StaticResource RowDesc}" Margin="0,4"
+                                           Text="Yok. Çentikteki bildirim listesinde bir bildirimin yanındaki zil simgesiyle ekleyebilirsiniz"/>
+                                <StackPanel x:Name="MutedList"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <!-- ================= HAVA DURUMU ================= -->
@@ -785,6 +938,13 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
                                         <Button x:Name="InstallUpdateBtn" Style="{StaticResource AccentButton}" Content="Güncelle"
                                                 Margin="0,0,8,0" Visibility="Collapsed" Click="InstallUpdate_Click"/>
+                                        <Button Style="{StaticResource GhostButton}" Click="ReleaseNotes_Click" Margin="0,0,4,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="&#xE8A5;" FontFamily="{StaticResource Icons}" FontSize="12"
+                                                           VerticalAlignment="Center" Margin="0,1,6,0"/>
+                                                <TextBlock Text="Yenilikler"/>
+                                            </StackPanel>
+                                        </Button>
                                         <Button x:Name="CheckUpdateBtn" Style="{StaticResource GhostButton}" Click="CheckUpdate_Click">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="&#xE72C;" FontFamily="{StaticResource Icons}" FontSize="12"

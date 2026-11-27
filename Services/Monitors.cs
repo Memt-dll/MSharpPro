@@ -1,11 +1,13 @@
 using System.Runtime.InteropServices;
 
+using static MSharpPro.Services.Loc;
+
 namespace MSharpPro.Services;
 
 /// <summary>Bir ekran (fiziksel piksel koordinatlarıyla).</summary>
 public sealed record MonitorInfo(string Device, int Number, int Left, int Top, int Width, int Height, bool IsPrimary)
 {
-    public string Label => $"Ekran {Number}{(IsPrimary ? " (ana)" : "")}  ·  {Width}×{Height}";
+    public string Label => L("Ekran {0}", Number) + (IsPrimary ? L(" (ana)") : "") + $"  ·  {Width}×{Height}";
 }
 
 /// <summary>Bağlı ekranları listeler.</summary>

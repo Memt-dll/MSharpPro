@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using MSharpPro.Services;
+using static MSharpPro.Services.Loc;
 
 namespace MSharpPro;
 
@@ -31,13 +32,16 @@ public partial class SettingsWindow : Window
         _loading = true; // InitializeComponent sırasında kaydırıcının ilk değeri ayara yazılmasın
         InitializeComponent();
 
-        VersionText.Text = $"Sürüm {UpdateService.Fmt(_updates.Current)}";
+        Translate(this);
+        VersionText.Text = L("Sürüm {0}", UpdateService.Fmt(_updates.Current));
         ShowPage(NavLook);
         ApplyTheme();
 
         // Yazı tiplerini isme göre sırala (liste sanallaştırılmış, sadece görünenler çizilir)
         FontCombo.ItemsSource = Fonts.SystemFontFamilies.OrderBy(f => f.Source).ToList();
         FillDisplays();
+        FocusCombo.ItemsSource = new[] { 15, 20, 25, 30, 45, 50, 60 };
+        BreakCombo.ItemsSource = new[] { 3, 5, 10, 15, 20 };
 
         LoadValues();
         UpdateUpdateUi();
@@ -160,27 +164,28 @@ public partial class SettingsWindow : Window
 
     private void ShowPage(RadioButton nav)
     {
-        (StackPanel page, string desc) = nav == NavBehavior ? (PageBehavior, "Başlangıç, bildirimler, gizleme ve kısayol")
+        (StackPanel page, string desc) = nav == NavBehavior ? (PageBehavior, "Başlangıç, bildirimler, göstergeler ve kısayol")
+            : nav == NavTabs ? (PageTabs, "Çentik panelinde hangi sekmelerin hangi sırayla görüneceği")
             : nav == NavWeather ? (PageWeather, "Çentikte ve panelde gösterilen hava durumu")
             : nav == NavUpdate ? (PageUpdate, "Sürüm bilgisi ve otomatik güncelleme")
-            : (PageLook, "Tema, çentiğin biçimi, ekranı, yazı tipi ve boyutu");
-        foreach (var p in new[] { PageLook, PageBehavior, PageWeather, PageUpdate })
+            : (PageLook, "Tema, dil, çentiğin biçimi, ekranı, yazı tipi ve boyutu");
+        foreach (var p in new[] { PageLook, PageTabs, PageBehavior, PageWeather, PageUpdate })
             p.Visibility = p == page ? Visibility.Visible : Visibility.Collapsed;
         PageTitle.Text = nav.Content as string ?? "";
-        PageDesc.Text = desc;
+        PageDesc.Text = L(desc);
         Scroller.ScrollToTop();
     }
 
     private void FillDisplays()
     {
         var monitors = Monitors.GetAll();
-        var items = new List<DisplayChoice> { new(AppSettings.DisplayPrimary, "Ana ekran") };
+        var items = new List<DisplayChoice> { new(AppSettings.DisplayPrimary, L("Ana ekran")) };
         items.AddRange(monitors.Select(m => new DisplayChoice(m.Device, m.Label)));
-        if (monitors.Count > 1) items.Add(new DisplayChoice(AppSettings.DisplayAll, "Tüm ekranlar"));
+        if (monitors.Count > 1) items.Add(new DisplayChoice(AppSettings.DisplayAll, L("Tüm ekranlar")));
         DisplayCombo.ItemsSource = items;
         DisplayDesc.Text = monitors.Count > 1
-            ? $"{monitors.Count} ekran bağlı"
-            : "Tek ekran bağlı; ikinci ekran takınca seçenekler çıkar";
+            ? L("{0} ekran bağlı", monitors.Count)
+            : L("Tek ekran bağlı; ikinci ekran takınca seçenekler çıkar");
     }
 
     private void OnSettingsChanged()
@@ -212,11 +217,24 @@ public partial class SettingsWindow : Window
         ThemeSystemBtn.IsChecked = _settings.Theme == AppSettings.ThemeSystem;
         ThemeLightBtn.IsChecked = _settings.Theme == AppSettings.ThemeLight;
         ThemeDarkBtn.IsChecked = _settings.Theme == AppSettings.ThemeDark;
+        LangSystemBtn.IsChecked = _settings.Language == AppSettings.LangSystem;
+        LangTrBtn.IsChecked = _settings.Language == "tr";
+        LangEnBtn.IsChecked = _settings.Language == "en";
+        OsdToggle.IsChecked = _settings.ShowOsd;
+        BatteryToggle.IsChecked = _settings.ShowBattery;
+        PrivacyToggle.IsChecked = _settings.ShowPrivacyDots;
+        CalendarToggle.IsChecked = _settings.CalendarReminders;
+        LyricsToggle.IsChecked = _settings.LyricsEnabled;
+        ClipToggle.IsChecked = _settings.ClipboardHistory;
+        FocusCombo.SelectedItem = _settings.PomodoroFocus;
+        BreakCombo.SelectedItem = _settings.PomodoroBreak;
+        BuildTabsList();
+        BuildMutedList();
         WeatherLocationBox.IsEnabled = _settings.WeatherEnabled;
         WeatherLocationBox.Opacity = _settings.WeatherEnabled ? 1 : 0.45;
         WeatherLocText.Text = _settings.WeatherLat is null
-            ? "Seçilmedi: bir şehir arayın ya da konumunuzu kullanın"
-            : $"Seçili: {(_settings.WeatherCity.Length > 0 ? _settings.WeatherCity : "Konumum")}";
+            ? L("Seçilmedi: bir şehir arayın ya da konumunuzu kullanın")
+            : L("Seçili: {0}", _settings.WeatherCity.Length > 0 ? _settings.WeatherCity : L("Konumum"));
         _loading = false;
     }
 
@@ -243,15 +261,15 @@ public partial class SettingsWindow : Window
     {
         string q = CitySearch.Text.Trim();
         if (q.Length < 2) return;
-        WeatherLocText.Text = "Aranıyor…";
+        WeatherLocText.Text = L("Aranıyor…");
         var results = await WeatherService.SearchAsync(q);
         if (results.Count == 0)
         {
-            WeatherLocText.Text = "Sonuç bulunamadı (internet bağlantısını ya da yazımı kontrol edin)";
+            WeatherLocText.Text = L("Sonuç bulunamadı (internet bağlantısını ya da yazımı kontrol edin)");
             CityResults.Visibility = Visibility.Collapsed;
             return;
         }
-        WeatherLocText.Text = "Listeden şehrinizi seçin";
+        WeatherLocText.Text = L("Listeden şehrinizi seçin");
         _loading = true;
         CityResults.ItemsSource = results;
         CityResults.SelectedItem = null;
@@ -274,9 +292,9 @@ public partial class SettingsWindow : Window
 
     private async void UseLocation_Click(object sender, RoutedEventArgs e)
     {
-        WeatherLocText.Text = "Konum alınıyor…";
+        WeatherLocText.Text = L("Konum alınıyor…");
         if (!await _host.Weather.TryUseDeviceLocationAsync())
-            WeatherLocText.Text = "Konum alınamadı: Ayarlar › Gizlilik › Konum'da masaüstü uygulamalarına izin verin ya da şehir arayın";
+            WeatherLocText.Text = L("Konum alınamadı: Ayarlar › Gizlilik › Konum'da masaüstü uygulamalarına izin verin ya da şehir arayın");
         else
             LoadValues();
     }
@@ -315,9 +333,194 @@ public partial class SettingsWindow : Window
         else if (sender == AutoUpdateToggle) _settings.AutoUpdate = AutoUpdateToggle.IsChecked == true;
         else if (sender == WeatherToggle) _settings.WeatherEnabled = WeatherToggle.IsChecked == true;
         else if (sender == ClockToggle) _settings.ShowClock = ClockToggle.IsChecked == true;
+        else if (sender == OsdToggle) _settings.ShowOsd = OsdToggle.IsChecked == true;
+        else if (sender == BatteryToggle) _settings.ShowBattery = BatteryToggle.IsChecked == true;
+        else if (sender == PrivacyToggle) _settings.ShowPrivacyDots = PrivacyToggle.IsChecked == true;
+        else if (sender == CalendarToggle) _settings.CalendarReminders = CalendarToggle.IsChecked == true;
+        else if (sender == LyricsToggle) _settings.LyricsEnabled = LyricsToggle.IsChecked == true;
+        else if (sender == ClipToggle) _settings.ClipboardHistory = ClipToggle.IsChecked == true;
         Save();
         LoadValues();
     }
+
+    // ---------------------------------------------------------------- dil
+
+    private void Lang_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        _settings.Language = sender == LangTrBtn ? "tr" : sender == LangEnBtn ? "en" : AppSettings.LangSystem;
+        Save();
+        LangRestartRow.Visibility = Visibility.Visible;
+    }
+
+    private void Restart_Click(object sender, RoutedEventArgs e) => AppHost.Restart();
+
+    // ---------------------------------------------------------------- sekmeler
+
+    private static readonly Dictionary<string, (string Glyph, string Name)> TabInfo = new()
+    {
+        ["media"] = ("", "Müzik"),
+        ["lyrics"] = ("", "Şarkı sözleri"),
+        ["bt"] = ("", "Bluetooth"),
+        ["notif"] = ("", "Bildirimler"),
+        ["weather"] = ("", "Hava durumu"),
+        ["timer"] = ("", "Zamanlayıcı"),
+        ["calendar"] = ("", "Takvim"),
+        ["clipboard"] = ("", "Kopyalananlar"),
+        ["shelf"] = ("", "Dosya rafı"),
+        ["system"] = ("", "Sistem"),
+    };
+
+    /// <summary>Sekme listesini (sıra okları + açma anahtarı) yeniden çizer.</summary>
+    private void BuildTabsList()
+    {
+        TabsList.Children.Clear();
+        var order = _settings.TabOrder;
+        for (int i = 0; i < order.Count; i++)
+        {
+            string id = order[i];
+            if (!TabInfo.TryGetValue(id, out var info)) continue;
+            var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var icon = new TextBlock
+            {
+                Text = info.Glyph, FontFamily = (FontFamily)FindResource("Icons"), FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 14, 0)
+            };
+            icon.SetResourceReference(TextBlock.ForegroundProperty, "Sub");
+            var name = new TextBlock { Text = L(info.Name), FontSize = 13.5, VerticalAlignment = VerticalAlignment.Center };
+            name.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            Grid.SetColumn(name, 1);
+
+            Button Arrow(string glyph, int col, int delta, bool enabled)
+            {
+                var b = new Button
+                {
+                    Content = new TextBlock { Text = glyph, FontFamily = (FontFamily)FindResource("Icons"), FontSize = 11 },
+                    Style = (Style)FindResource("GhostButton"), IsEnabled = enabled, Margin = new Thickness(2, 0, 2, 0),
+                    ToolTip = delta < 0 ? L("Yukarı taşı") : L("Aşağı taşı"), Padding = new Thickness(0)
+                };
+                b.Click += (_, _) => MoveTab(id, delta);
+                Grid.SetColumn(b, col);
+                return b;
+            }
+
+            var toggle = new CheckBox
+            {
+                Style = (Style)FindResource("Toggle"), IsChecked = !_settings.HiddenTabs.Contains(id),
+                Margin = new Thickness(10, 0, 4, 0), VerticalAlignment = VerticalAlignment.Center
+            };
+            toggle.Click += (_, _) =>
+            {
+                if (toggle.IsChecked == true) _settings.HiddenTabs.Remove(id);
+                else if (!_settings.HiddenTabs.Contains(id)) _settings.HiddenTabs.Add(id);
+                Save();
+            };
+            Grid.SetColumn(toggle, 4);
+
+            row.Children.Add(icon);
+            row.Children.Add(name);
+            row.Children.Add(Arrow("", 2, -1, i > 0));
+            row.Children.Add(Arrow("", 3, +1, i < order.Count - 1));
+            row.Children.Add(toggle);
+            TabsList.Children.Add(row);
+        }
+    }
+
+    private void MoveTab(string id, int delta)
+    {
+        var order = _settings.TabOrder;
+        int i = order.IndexOf(id), j = i + delta;
+        if (i < 0 || j < 0 || j >= order.Count) return;
+        (order[i], order[j]) = (order[j], order[i]);
+        Save();
+        BuildTabsList();
+    }
+
+    private void Pomodoro_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loading) return;
+        if (FocusCombo.SelectedItem is int f) _settings.PomodoroFocus = f;
+        if (BreakCombo.SelectedItem is int b) _settings.PomodoroBreak = b;
+        Save();
+    }
+
+    // ---------------------------------------------------------------- sessize alınan uygulamalar
+
+    private void BuildMutedList()
+    {
+        MutedList.Children.Clear();
+        MutedEmpty.Visibility = _settings.MutedApps.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var app in _settings.MutedApps.ToList())
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
+            var remove = new Button { Content = L("Kaldır"), Style = (Style)FindResource("GhostButton") };
+            remove.Click += (_, _) =>
+            {
+                _settings.MutedApps.Remove(app);
+                Save();
+                BuildMutedList();
+            };
+            DockPanel.SetDock(remove, Dock.Right);
+            var name = new TextBlock { Text = app, FontSize = 13.5, VerticalAlignment = VerticalAlignment.Center };
+            name.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+            row.Children.Add(remove);
+            row.Children.Add(name);
+            MutedList.Children.Add(row);
+        }
+    }
+
+    // ---------------------------------------------------------------- yedekleme
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = $"MSharpPro-{L("ayarlar")}-{DateTime.Now:yyyy-MM-dd}.json",
+            Filter = "JSON (*.json)|*.json",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        try
+        {
+            _settings.ExportTo(dlg.FileName);
+            ShowBackupStatus(L("Ayarlar kaydedildi"));
+        }
+        catch (Exception ex)
+        {
+            App.LogError(ex);
+            ShowBackupStatus(L("Dosya yazılamadı"));
+        }
+    }
+
+    private void Import_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog { Filter = "JSON (*.json)|*.json" };
+        if (dlg.ShowDialog(this) != true) return;
+        string oldLang = _settings.Language;
+        if (!_settings.ImportFrom(dlg.FileName))
+        {
+            ShowBackupStatus(L("Bu dosya geçerli bir M#Pro ayar dosyası değil"));
+            return;
+        }
+        LoadValues();
+        ApplyTheme();
+        ShowBackupStatus(L("Ayarlar yüklendi"));
+        if (_settings.Language != oldLang) LangRestartRow.Visibility = Visibility.Visible;
+    }
+
+    private void ShowBackupStatus(string text)
+    {
+        BackupStatus.Text = text;
+        BackupStatus.Visibility = Visibility.Visible;
+    }
+
+    private void ReleaseNotes_Click(object sender, RoutedEventArgs e) =>
+        AppHost.OpenReleaseNotes(UpdateService.Fmt(_updates.Current));
 
     private void Save()
     {
@@ -336,19 +539,19 @@ public partial class SettingsWindow : Window
             AutoUpdateToggle.Visibility = Visibility.Collapsed;
             AutoUpdateDivider.Visibility = Visibility.Collapsed;
             InstallUpdateBtn.Visibility = Visibility.Collapsed;
-            UpdateStatus.Text = $"Yüklü sürüm: {UpdateService.Fmt(_updates.Current)}";
-            UpdateDetail.Text = "Güncellemeler Microsoft Store üzerinden otomatik gelir";
-            CheckUpdateBtnText.Text = "Store'da aç";
+            UpdateStatus.Text = L("Yüklü sürüm: {0}", UpdateService.Fmt(_updates.Current));
+            UpdateDetail.Text = L("Güncellemeler Microsoft Store üzerinden otomatik gelir");
+            CheckUpdateBtnText.Text = L("Store'da aç");
             return;
         }
 
         var s = _updates.State;
         UpdateStatus.Text = s == UpdateService.UpdateState.Idle
-            ? $"Yüklü sürüm: {UpdateService.Fmt(_updates.Current)}"
+            ? L("Yüklü sürüm: {0}", UpdateService.Fmt(_updates.Current))
             : _updates.Message;
 
-        string detail = _updates.LastCheck is { } t ? $"Son denetim: {t:HH:mm}" : "Henüz denetlenmedi";
-        if (!_updates.IsInstalled) detail += "  ·  Geliştirme kopyası: arka planda kurulmaz, 'Güncelle' ile kurulur";
+        string detail = _updates.LastCheck is { } t ? L("Son denetim: {0}", t.ToString("HH:mm")) : L("Henüz denetlenmedi");
+        if (!_updates.IsInstalled) detail += "  ·  " + L("Geliştirme kopyası: arka planda kurulmaz, 'Güncelle' ile kurulur");
         UpdateDetail.Text = detail;
 
         bool busy = s is UpdateService.UpdateState.Checking or UpdateService.UpdateState.Downloading

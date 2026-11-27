@@ -49,7 +49,7 @@
 
         <Border x:Name="Island" Width="170" Height="32"
                 HorizontalAlignment="Center" VerticalAlignment="Top"
-                CornerRadius="0,0,16,16" ClipToBounds="True" BorderThickness="1,0,1,1">
+                CornerRadius="0,0,16,16" ClipToBounds="True" BorderThickness="1,0,1,1" AllowDrop="True">
             <Border.RenderTransform>
                 <TranslateTransform x:Name="Slide"/>
             </Border.RenderTransform>
@@ -62,8 +62,8 @@
             <Border.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="#00000000" Offset="0"/>
-                    <GradientStop Color="#225AB8FF" Offset="0.6"/>
-                    <GradientStop Color="#668A7CFF" Offset="1"/>
+                    <GradientStop Color="#14FFFFFF" Offset="0.6"/>
+                    <GradientStop Color="#33FFFFFF" Offset="1"/>
                 </LinearGradientBrush>
             </Border.BorderBrush>
             <Grid>
@@ -87,13 +87,13 @@
                     </Border>
                 </Grid>
 
-                <!-- Panel açıkken (kapak arka planı yoksa) üstte hafif mavi-mor parıltı -->
+                <!-- Panel açıkken (kapak arka planı yoksa) üstte hafif beyaz parıltı -->
                 <Border x:Name="GlowLayer" CornerRadius="{Binding CornerRadius, ElementName=Island}"
                         IsHitTestVisible="False" Visibility="Collapsed">
                     <Border.Background>
                         <RadialGradientBrush Center="0.5,0" GradientOrigin="0.5,0" RadiusX="0.75" RadiusY="0.9">
-                            <GradientStop Color="#2E6A7CFF" Offset="0"/>
-                            <GradientStop Color="#0D5AB8FF" Offset="0.55"/>
+                            <GradientStop Color="#1AFFFFFF" Offset="0"/>
+                            <GradientStop Color="#08FFFFFF" Offset="0.55"/>
                             <GradientStop Color="#00000000" Offset="1"/>
                         </RadialGradientBrush>
                     </Border.Background>
@@ -116,8 +116,19 @@
                     </Border>
                     <!-- Sağ taraf: sessiz simgesi her zaman görünür; yanında ya ekolayzer (çalarken) ya da nokta + hava durumu -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- Mikrofon (turuncu) / kamera (yeşil) kullanımda -->
+                        <Ellipse x:Name="MicDot" Width="6" Height="6" Fill="#FF9F43" VerticalAlignment="Center"
+                                 Margin="0,0,5,0" Visibility="Collapsed" ToolTip="Mikrofon kullanımda"/>
+                        <Ellipse x:Name="CamDot" Width="6" Height="6" Fill="#3DDC84" VerticalAlignment="Center"
+                                 Margin="0,0,7,0" Visibility="Collapsed" ToolTip="Kamera kullanımda"/>
                         <TextBlock x:Name="CompactMuted" Text="&#xE7ED;" FontFamily="{StaticResource Icons}" FontSize="11"
                                    Foreground="#FFB86B" VerticalAlignment="Center" Margin="0,0,7,0" Visibility="Collapsed"/>
+                        <StackPanel x:Name="CompactTimer" Orientation="Horizontal" VerticalAlignment="Center"
+                                    Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="&#xE916;" FontFamily="{StaticResource Icons}" FontSize="10.5"
+                                       VerticalAlignment="Center" Margin="0,1,4,0" Foreground="#CCFFFFFF"/>
+                            <TextBlock x:Name="CompactTimerText" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </StackPanel>
                     <StackPanel x:Name="EqPanel" Orientation="Horizontal"
                                 VerticalAlignment="Center" Visibility="Collapsed">
                         <Rectangle x:Name="Eq1" Style="{StaticResource EqBar}"/>
@@ -153,7 +164,7 @@
                         <ColumnDefinition/>
                     </Grid.ColumnDefinitions>
                     <Border Width="42" Height="42" CornerRadius="12" BorderThickness="1.5"
-                            BorderBrush="{StaticResource AccentGradient}" Background="#1A5AB8FF">
+                            BorderBrush="{StaticResource AccentGradient}" Background="#1AFFFFFF">
                         <Grid>
                             <TextBlock x:Name="PeekGlyph" FontFamily="{StaticResource Icons}" FontSize="18"
                                        Foreground="{StaticResource AccentBrush}"
@@ -169,6 +180,11 @@
                         <TextBlock x:Name="PeekTitle" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
                         <TextBlock x:Name="PeekText" FontSize="12" Foreground="#B3FFFFFF" TextTrimming="CharacterEllipsis"
                                    Margin="0,1,0,0"/>
+                        <!-- Ses / parlaklık düzeyi -->
+                        <Grid x:Name="PeekLevel" Height="5" Margin="0,7,0,0" Visibility="Collapsed">
+                            <Border Background="#24FFFFFF" CornerRadius="2.5"/>
+                            <Border x:Name="PeekLevelFill" Background="White" CornerRadius="2.5" HorizontalAlignment="Left" Width="0"/>
+                        </Grid>
                     </StackPanel>
                 </Grid>
 
@@ -198,18 +214,42 @@
                         <!-- Sekmeler: tek bir koyu yol içinde simge butonları (segmented control) -->
                         <Border Background="#14FFFFFF" CornerRadius="17" Padding="3" HorizontalAlignment="Left"
                                 VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <RadioButton x:Name="TabMedia" Style="{StaticResource IconTab}" IsChecked="True"
+                            <StackPanel x:Name="TabBar" Orientation="Horizontal">
+                                <RadioButton x:Name="TabMedia" Style="{StaticResource IconTab}" IsChecked="True" Tag="media"
                                              Checked="Tab_Checked" ToolTip="Müzik">
                                     <TextBlock Text="&#xEC4F;"/>
                                 </RadioButton>
+                                <RadioButton x:Name="TabLyrics" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="lyrics" ToolTip="Şarkı sözleri">
+                                    <TextBlock Text="&#xE8D2;"/>
+                                </RadioButton>
                                 <RadioButton x:Name="TabBt" Style="{StaticResource IconTab}" Checked="Tab_Checked"
-                                             ToolTip="Bluetooth">
+                                             Tag="bt" ToolTip="Bluetooth">
                                     <TextBlock Text="&#xE702;"/>
                                 </RadioButton>
+                                <RadioButton x:Name="TabTimer" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="timer" ToolTip="Zamanlayıcı">
+                                    <TextBlock Text="&#xE916;"/>
+                                </RadioButton>
+                                <RadioButton x:Name="TabCalendar" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="calendar" ToolTip="Takvim">
+                                    <TextBlock Text="&#xE787;"/>
+                                </RadioButton>
+                                <RadioButton x:Name="TabClipboard" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="clipboard" ToolTip="Kopyalananlar">
+                                    <TextBlock Text="&#xE77F;"/>
+                                </RadioButton>
+                                <RadioButton x:Name="TabShelf" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="shelf" ToolTip="Dosya rafı">
+                                    <TextBlock Text="&#xE8B7;"/>
+                                </RadioButton>
+                                <RadioButton x:Name="TabSystem" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="system" ToolTip="Sistem">
+                                    <TextBlock Text="&#xE9D9;"/>
+                                </RadioButton>
                                 <RadioButton x:Name="TabNotif" Style="{StaticResource IconTab}" Checked="Tab_Checked"
-                                             ToolTip="Bildirimler">
-                                    <Grid Width="40" Height="28">
+                                             Tag="notif" ToolTip="Bildirimler">
+                                    <Grid Width="34" Height="28">
                                         <TextBlock Text="&#xEA8F;" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <Border x:Name="NotifBadge" Background="#FF4D6D" CornerRadius="7" MinWidth="14" Height="14"
                                                 Padding="3,0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,2,0"
@@ -220,7 +260,7 @@
                                     </Grid>
                                 </RadioButton>
                                 <RadioButton x:Name="TabWeather" Style="{StaticResource IconTab}" Checked="Tab_Checked"
-                                             ToolTip="Hava durumu">
+                                             Tag="weather" ToolTip="Hava durumu">
                                     <Image x:Name="TabWeatherIcon" Width="17" Height="17" RenderOptions.BitmapScalingMode="HighQuality"/>
                                 </RadioButton>
                             </StackPanel>
@@ -350,7 +390,7 @@
                                 </ItemsControl>
                             </ScrollViewer>
                             <StackPanel x:Name="BtEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border Width="44" Height="44" CornerRadius="22" Background="#1A5AB8FF" HorizontalAlignment="Center">
+                                <Border Width="44" Height="44" CornerRadius="22" Background="#1AFFFFFF" HorizontalAlignment="Center">
                                     <TextBlock Text="&#xE702;" FontFamily="{StaticResource Icons}" FontSize="19"
                                                Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
@@ -467,6 +507,270 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- Şarkı sözleri: çalan satır ortada, öncesi / sonrası soluk -->
+                        <Grid x:Name="LyricsPanel" Visibility="Collapsed">
+                            <StackPanel x:Name="LyricsSynced" VerticalAlignment="Center">
+                                <TextBlock x:Name="LyricPrev2" FontSize="12" Foreground="#40FFFFFF" HorizontalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="LyricPrev1" FontSize="13" Foreground="#73FFFFFF" HorizontalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,0,0,6"/>
+                                <TextBlock x:Name="LyricNow" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                           TextAlignment="Center" TextWrapping="Wrap" MaxHeight="48"/>
+                                <TextBlock x:Name="LyricNext1" FontSize="13" Foreground="#73FFFFFF" HorizontalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,6,0,0"/>
+                                <TextBlock x:Name="LyricNext2" FontSize="12" Foreground="#40FFFFFF" HorizontalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" Margin="0,4,0,0"/>
+                            </StackPanel>
+                            <ScrollViewer x:Name="LyricsPlainBox" VerticalScrollBarVisibility="Hidden" Visibility="Collapsed">
+                                <TextBlock x:Name="LyricsPlain" FontSize="12.5" Foreground="#D9FFFFFF" TextWrapping="Wrap"
+                                           TextAlignment="Center" LineHeight="19"/>
+                            </ScrollViewer>
+                            <StackPanel x:Name="LyricsEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE8D2;" FontFamily="{StaticResource Icons}" FontSize="22"
+                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                                <TextBlock x:Name="LyricsStatus" Foreground="#80FFFFFF" FontSize="12" Margin="0,6,0,0"
+                                           HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="360"/>
+                            </StackPanel>
+                            <TextBlock Text="LRCLIB" Style="{StaticResource Caption}" FontSize="9" HorizontalAlignment="Right"
+                                       VerticalAlignment="Bottom" Opacity="0.6"/>
+                        </Grid>
+
+                        <!-- Zamanlayıcı / Pomodoro -->
+                        <Grid x:Name="TimerPanel" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <Border Background="#0FFFFFFF" CornerRadius="18" Padding="16,12">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock x:Name="TimerPhase" Text="Zamanlayıcı" FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="#B3FFFFFF"/>
+                                    <TextBlock x:Name="TimerBig" Grid.Row="1" Text="0:00" FontSize="40" FontWeight="Light"
+                                               VerticalAlignment="Center"/>
+                                    <Grid Grid.Row="2" Height="4" Margin="0,0,0,10">
+                                        <Border Background="#24FFFFFF" CornerRadius="2"/>
+                                        <Border x:Name="TimerFill" Background="White" CornerRadius="2" HorizontalAlignment="Left" Width="0"/>
+                                    </Grid>
+                                    <StackPanel Grid.Row="3" Orientation="Horizontal">
+                                        <Button x:Name="TimerPlayBtn" Style="{StaticResource PlayBtn}" Content="&#xE768;"
+                                                Width="34" Height="34" FontSize="13" Click="TimerPlay_Click" ToolTip="Başlat / Duraklat"/>
+                                        <Button Style="{StaticResource IconBtn}" Content="&#xE71A;" FontSize="13" Margin="8,0,0,0"
+                                                Width="34" Height="34" Click="TimerStop_Click" ToolTip="Durdur"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="Hızlı başlat" Style="{StaticResource Caption}" Margin="2,0,0,6"/>
+                                <WrapPanel x:Name="TimerPresets">
+                                    <Button Style="{StaticResource PillBtn}" Tag="1" Content="1 dk" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource PillBtn}" Tag="5" Content="5 dk" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource PillBtn}" Tag="10" Content="10 dk" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource PillBtn}" Tag="15" Content="15 dk" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource PillBtn}" Tag="30" Content="30 dk" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                    <Button Style="{StaticResource PillBtn}" Tag="60" Content="1 sa" Margin="0,0,6,6" Click="TimerPreset_Click"/>
+                                </WrapPanel>
+                                <Button Style="{StaticResource PillBtn}" Content="+1 dk" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                        Click="TimerAdd_Click"/>
+                                <Button Style="{StaticResource PillBtn}" HorizontalAlignment="Left" Click="Pomodoro_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE916;" FontFamily="{StaticResource Icons}" FontSize="10"
+                                                   VerticalAlignment="Center" Margin="0,1,6,0"/>
+                                        <TextBlock x:Name="PomodoroText" Text="Pomodoro"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Takvim -->
+                        <Grid x:Name="CalendarPanel" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                                <ItemsControl x:Name="CalendarList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ListCard}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="4" CornerRadius="2" Background="#E9E8E1" Margin="0,2,10,2"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock FontSize="11" Foreground="#99FFFFFF" TextTrimming="CharacterEllipsis">
+                                                            <Run Text="{Binding When, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Location}" FontSize="10.5" Foreground="#73FFFFFF"
+                                                                   TextTrimming="CharacterEllipsis" Visibility="{Binding LocationVisibility}"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="2" Background="#F2F1EB" CornerRadius="9" Padding="7,1"
+                                                            VerticalAlignment="Center" Visibility="{Binding NowVisibility}">
+                                                        <TextBlock Text="{Binding NowLabel}" FontSize="10" FontWeight="SemiBold"
+                                                                   Foreground="#222622"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel x:Name="CalendarEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE787;" FontFamily="{StaticResource Icons}" FontSize="22"
+                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                                <TextBlock x:Name="CalendarProblem" Foreground="#80FFFFFF" FontSize="12" Margin="0,6,0,8"
+                                           HorizontalAlignment="Center"/>
+                                <Button x:Name="CalendarAccessBtn" Style="{StaticResource PillBtn}" Content="Ayarları aç"
+                                        HorizontalAlignment="Center" Click="OpenCalendarSettings_Click"/>
+                            </StackPanel>
+                            <Button Grid.Row="1" Style="{StaticResource PillBtn}" HorizontalAlignment="Right" Margin="0,2,0,0"
+                                    Click="CalendarRefresh_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE72C;" FontFamily="{StaticResource Icons}" FontSize="10"
+                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                    <TextBlock Text="Yenile"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Kopyalananlar -->
+                        <Grid x:Name="ClipPanel" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                                <ItemsControl x:Name="ClipList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ListCard}" Cursor="Hand" ToolTip="{Binding Text}"
+                                                    MouseLeftButtonUp="ClipItem_Click">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Preview}" FontSize="12" TextTrimming="CharacterEllipsis"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding Time}" FontSize="10" Foreground="#66FFFFFF"
+                                                               VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel x:Name="ClipEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE77F;" FontFamily="{StaticResource Icons}" FontSize="22"
+                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                                <TextBlock x:Name="ClipEmptyText" Text="Kopyaladığınız metinler burada görünür" Foreground="#80FFFFFF"
+                                           FontSize="12" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock x:Name="ClipHint" Grid.Row="1" Text="Tıklayınca yeniden kopyalanır · yalnızca bellekte tutulur"
+                                       Style="{StaticResource Caption}" FontSize="10.5" VerticalAlignment="Center" Margin="2,4,0,0"/>
+                            <Button x:Name="ClipClearBtn" Grid.Row="1" Style="{StaticResource PillBtn}" HorizontalAlignment="Right"
+                                    Margin="0,4,0,0" Click="ClipClear_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE894;" FontFamily="{StaticResource Icons}" FontSize="10"
+                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                    <TextBlock Text="Temizle"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Dosya rafı -->
+                        <Grid x:Name="ShelfPanel" Visibility="Collapsed">
+                            <Grid.RowDefinitions>
+                                <RowDefinition/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                                <ItemsControl x:Name="ShelfList">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Style="{StaticResource ListCard}" Width="84" Height="80" Margin="0,0,6,6"
+                                                    Padding="6" Cursor="Hand" ToolTip="{Binding Path}"
+                                                    PreviewMouseLeftButtonDown="ShelfItem_MouseDown" MouseMove="ShelfItem_MouseMove"
+                                                    MouseRightButtonUp="ShelfItem_Remove">
+                                                <StackPanel VerticalAlignment="Center">
+                                                    <Image Source="{Binding Icon}" Width="32" Height="32" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FontSize="10.5" Margin="0,5,0,0"
+                                                               HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel x:Name="ShelfEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE8B7;" FontFamily="{StaticResource Icons}" FontSize="22"
+                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" Opacity="0.7"/>
+                                <TextBlock Text="Dosyaları çentiğe sürükleyip bırakın" Foreground="#80FFFFFF" FontSize="12"
+                                           Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Text="Dışarı sürükleyerek kopyalayın · çift tıkla aç · sağ tıkla kaldır"
+                                       Style="{StaticResource Caption}" FontSize="10.5" VerticalAlignment="Center" Margin="2,4,0,0"/>
+                            <Button x:Name="ShelfClearBtn" Grid.Row="1" Style="{StaticResource PillBtn}" HorizontalAlignment="Right"
+                                    Margin="0,4,0,0" Click="ShelfClear_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE894;" FontFamily="{StaticResource Icons}" FontSize="10"
+                                               VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                    <TextBlock Text="Temizle"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- Sistem: işlemci, bellek, ağ -->
+                        <UniformGrid x:Name="SysPanel" Columns="3" Visibility="Collapsed">
+                            <Border Background="#0FFFFFFF" CornerRadius="16" Padding="12,10" Margin="0,0,5,0">
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="İşlemci" Style="{StaticResource Caption}"/>
+                                        <TextBlock x:Name="CpuText" Text="–" FontSize="24" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                    <Path x:Name="CpuSpark" Height="56" VerticalAlignment="Bottom" Fill="#26FFFFFF"
+                                          Stroke="#E9E8E1" StrokeThickness="1.2" Stretch="None"/>
+                                </Grid>
+                            </Border>
+                            <Border Background="#0FFFFFFF" CornerRadius="16" Padding="12,10" Margin="5,0">
+                                <StackPanel>
+                                    <TextBlock Text="Bellek" Style="{StaticResource Caption}"/>
+                                    <TextBlock x:Name="MemText" Text="–" FontSize="24" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="MemDetail" FontSize="11" Foreground="#99FFFFFF"/>
+                                    <Grid Height="6" Margin="0,14,0,0">
+                                        <Border Background="#24FFFFFF" CornerRadius="3"/>
+                                        <Border x:Name="MemFill" Background="#E9E8E1" CornerRadius="3" HorizontalAlignment="Left" Width="0"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#0FFFFFFF" CornerRadius="16" Padding="12,10" Margin="5,0,0,0">
+                                <Grid>
+                                    <StackPanel>
+                                        <TextBlock Text="Ağ" Style="{StaticResource Caption}"/>
+                                        <TextBlock x:Name="NetDown" Text="↓ –" FontSize="15" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="NetUp" Text="↑ –" FontSize="12" Foreground="#B3FFFFFF"/>
+                                    </StackPanel>
+                                    <Path x:Name="NetSpark" Height="56" VerticalAlignment="Bottom" Fill="#26FFFFFF"
+                                          Stroke="#E9E8E1" StrokeThickness="1.2" Stretch="None"/>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+
                         <!-- Bildirimler -->
                         <Grid x:Name="NotifPanel" Visibility="Collapsed">
                             <Grid.RowDefinitions>
@@ -477,13 +781,20 @@
                                 <ItemsControl x:Name="NotifList">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Style="{StaticResource ListCard}">
+                                            <Border Style="{StaticResource ListCard}" Cursor="Hand"
+                                                    ToolTip="{DynamicResource OpenAppTip}" MouseLeftButtonUp="NotifItem_Click">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto"/>
                                                         <ColumnDefinition/>
+                                                        <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
-                                                    <Border Width="34" Height="34" CornerRadius="10" Background="#1A5AB8FF"
+                                                    <Button Grid.Column="2" Style="{StaticResource HeaderIconBtn}" Width="24" Height="24"
+                                                            FontSize="10" VerticalAlignment="Top" Margin="8,0,0,0"
+                                                            ToolTip="{DynamicResource MuteAppTip}" Click="NotifMuteApp_Click">
+                                                        <TextBlock Text="&#xE7ED;"/>
+                                                    </Button>
+                                                    <Border Width="34" Height="34" CornerRadius="10" Background="#1AFFFFFF"
                                                             VerticalAlignment="Top">
                                                         <Grid>
                                                             <TextBlock Text="&#xEA8F;" FontFamily="{StaticResource Icons}" FontSize="13"

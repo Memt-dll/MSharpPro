@@ -2,6 +2,8 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Windows.Media.Control;
 
+using static MSharpPro.Services.Loc;
+
 namespace MSharpPro.Services;
 
 /// <summary>
@@ -300,7 +302,7 @@ public sealed class MediaService
             "firefox" or "308046b0af4a39cb" => "Firefox",
             "opera" => "Opera",
             "brave" => "Brave",
-            "zunemusic" => "Medya Oynatıcı",
+            "zunemusic" => L("Medya Oynatıcı"),
             "spotify" => "Spotify",
             _ => n.Length > 0 ? char.ToUpper(n[0]) + n[1..] : n
         };

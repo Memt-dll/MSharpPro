@@ -10,6 +10,8 @@ public sealed class NotifItem
     public string Title { get; init; } = "";
     public string Body { get; init; } = "";
     public string Time { get; init; } = "";
+    /// <summary>Bildirimi gönderen uygulamanın kimliği (tıklayınca uygulamayı açmak için).</summary>
+    public string AppId { get; init; } = "";
     public ImageSource? Icon { get; init; }
     public System.Windows.Visibility IconVisibility =>
         Icon != null ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
@@ -44,6 +46,18 @@ public sealed class NotificationService
             return !settings.GetSubKeyNames().Any(k => k.StartsWith("MSTeams_", StringComparison.OrdinalIgnoreCase));
         }
         catch { return false; }
+    }
+
+    /// <summary>Bildirimi gönderen uygulamayı açar (Başlat menüsündeki kısayolu gibi).</summary>
+    public static void OpenApp(NotifItem n)
+    {
+        if (n.AppId.Length == 0) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                "explorer.exe", "shell:AppsFolder\\" + n.AppId) { UseShellExecute = true });
+        }
+        catch (Exception ex) { App.LogError(ex); }
     }
 
     public async Task<bool> StartAsync()
@@ -118,8 +132,9 @@ public sealed class NotificationService
             catch { }
         }
 
-        string app = "";
+        string app = "", appId = "";
         ImageSource? icon = null;
+        try { appId = n.AppInfo.AppUserModelId; } catch { }
         // Uygulama adı ve ikonu ayrı ayrı okunur: ikon alınamasa da (ör. Teams) ad kaybolmasın
         try { app = n.AppInfo.DisplayInfo.DisplayName; } catch { }
         try
@@ -134,6 +149,7 @@ public sealed class NotificationService
         return new NotifItem
         {
             App = app,
+            AppId = appId,
             Title = texts.FirstOrDefault() ?? app,
             Body = string.Join(" · ", texts.Skip(1)),
             Time = n.CreationTime.LocalDateTime.ToString("HH:mm"),

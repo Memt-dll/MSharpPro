@@ -29,4 +29,8 @@
     <None Remove="Assets\icon-1024.png;Assets\make-icons.ps1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+
 </Project>

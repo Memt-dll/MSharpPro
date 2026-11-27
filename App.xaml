@@ -5,10 +5,10 @@
     <Application.Resources>
         <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-        <!-- İkondaki neon mavi → mor renkler -->
-        <Color x:Key="AccentBlue">#5AB8FF</Color>
-        <Color x:Key="AccentViolet">#8A7CFF</Color>
-        <SolidColorBrush x:Key="AccentBrush" Color="#6FB4FF"/>
+        <!-- Logodaki tek renkli (krem → gri) tonlar -->
+        <Color x:Key="AccentBlue">#F2F1EB</Color>
+        <Color x:Key="AccentViolet">#C4C7BE</Color>
+        <SolidColorBrush x:Key="AccentBrush" Color="#E9E8E1"/>
         <LinearGradientBrush x:Key="AccentGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="{StaticResource AccentBlue}" Offset="0"/>
             <GradientStop Color="{StaticResource AccentViolet}" Offset="1"/>
@@ -35,7 +35,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#E6F0FF"/>
+                                <Setter TargetName="bd" Property="Background" Value="#E2E1DA"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="bd" Property="RenderTransform">
@@ -58,7 +58,7 @@
             <Setter Property="Foreground" Value="#8CFFFFFF"/>
             <Setter Property="FontFamily" Value="{StaticResource Icons}"/>
             <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Width" Value="40"/>
+            <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="28"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -77,8 +77,8 @@
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="{StaticResource AccentGradient}"/>
-                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="bd" Property="Background" Value="#F2F1EB"/>
+                                <Setter Property="Foreground" Value="#222622"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

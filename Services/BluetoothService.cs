@@ -5,6 +5,8 @@ using System.Windows.Threading;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Enumeration;
 
+using static MSharpPro.Services.Loc;
+
 namespace MSharpPro.Services;
 
 public sealed class BtDevice : INotifyPropertyChanged
@@ -18,7 +20,7 @@ public sealed class BtDevice : INotifyPropertyChanged
     public string Name { get; init; } = "";
     public string Glyph { get; set; } = "";
     public bool IsConnected => ConnectedIds.Count > 0;
-    public string StatusText => IsConnected ? "Bağlı" : "Bağlı değil";
+    public string StatusText => IsConnected ? L("Bağlı") : L("Bağlı değil");
     public Brush StatusBrush => IsConnected ? Green : Gray;
     public Brush IconBrush => IsConnected ? AccentIcon : IdleIcon;
 

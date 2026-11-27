@@ -4,11 +4,18 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using MSharpPro.Services;
+using static MSharpPro.Services.Loc;
 
 namespace MSharpPro;
 
 /// <summary>Çentikte kısa süre görünen bildirim.</summary>
-public sealed record PeekItem(string Title, string Text, string Glyph, ImageSource? Image);
+public sealed record PeekItem(string Title, string Text, string Glyph, ImageSource? Image)
+{
+    /// <summary>Ses / parlaklık göstergesi: 0..1 düzey çubuğu (yalnızca gösterge için).</summary>
+    public double? Level { get; init; }
+    /// <summary>Bildirime tıklanınca yapılacak iş (ör. uygulamayı ya da sürüm notlarını aç).</summary>
+    public Action? Click { get; init; }
+}
 
 /// <summary>
 /// Uygulamanın merkezi: servisler (medya, Bluetooth, bildirim, güncelleme), tepsi ikonu ve kısayol
@@ -31,6 +38,16 @@ public sealed class AppHost
     public NotificationService Notifications { get; } = new();
     public UpdateService Updates { get; } = new();
     public WeatherService Weather { get; }
+    public VolumeService Volume { get; }
+    public BrightnessService Brightness { get; }
+    public PowerService Power { get; } = new();
+    public PrivacyService Privacy { get; } = new();
+    public TimerService Timer { get; }
+    public CalendarService Calendar { get; }
+    public ClipboardService Clipboard { get; }
+    public ShelfService Shelf { get; } = new();
+    public StatsService Stats { get; } = new();
+    public LyricsService Lyrics { get; } = new();
     private readonly DispatcherTimer _weatherTimer;
     private string _weatherKey = "";
     public ObservableCollection<NotifItem> NotifItems { get; } = new();
@@ -42,9 +59,15 @@ public sealed class AppHost
     public AppHost(Dispatcher ui)
     {
         _ui = ui;
+        Loc.Init(Settings.Language);
         Media = new MediaService(ui);
         Bluetooth = new BluetoothService(ui);
         Weather = new WeatherService(Settings);
+        Volume = new VolumeService(ui);
+        Brightness = new BrightnessService(ui);
+        Timer = new TimerService(Settings);
+        Calendar = new CalendarService(Settings);
+        Clipboard = new ClipboardService(Settings);
         _weatherTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMinutes(30) };
         _weatherTimer.Tick += async (_, _) => await Weather.RefreshAsync();
 
@@ -74,25 +97,70 @@ public sealed class AppHost
         RebuildWindows(force: true);
 
         Media.TrackChanged += () =>
-            Peek(new PeekItem(Media.Title, Media.Artist.Length > 0 ? Media.Artist : $"Şimdi çalıyor · {Media.AppName}",
+            Peek(new PeekItem(Media.Title, Media.Artist.Length > 0 ? Media.Artist : L("Şimdi çalıyor · {0}", Media.AppName),
                 "", Media.Art));
         Bluetooth.ConnectionChanged += d =>
-            Peek(new PeekItem(d.Name, d.IsConnected ? "Bağlandı" : "Bağlantı kesildi", d.Glyph, null));
+            Peek(new PeekItem(d.Name, d.IsConnected ? L("Bağlandı") : L("Bağlantı kesildi"), d.Glyph, null));
         Notifications.Received += n => _ui.InvokeAsync(() =>
         {
             NotifItems.Insert(0, n);
             while (NotifItems.Count > 20) NotifItems.RemoveAt(NotifItems.Count - 1);
             Unread++;
             NotificationsChanged?.Invoke();
-            Peek(new PeekItem(n.Title, n.Body.Length > 0 ? n.Body : n.App, "", n.Icon));
+            // Sessize alınan uygulamaların bildirimi listede birikir ama çentikte açılmaz
+            if (Settings.MutedApps.Contains(n.App, StringComparer.OrdinalIgnoreCase)) return;
+            Peek(new PeekItem(n.Title, n.Body.Length > 0 ? n.Body : n.App, "", n.Icon)
+            {
+                Click = n.AppId.Length > 0 ? () => NotificationService.OpenApp(n) : null
+            });
         });
-        Updates.Installing += v => Peek(new PeekItem("M#Pro güncelleniyor",
-            $"Sürüm {UpdateService.Fmt(v)} kuruluyor, birazdan yeniden açılacak", "", null), urgent: true);
+        Updates.Installing += v => Peek(new PeekItem(L("M#Pro güncelleniyor"),
+            L("Sürüm {0} kuruluyor, birazdan yeniden açılacak", UpdateService.Fmt(v)), "", null), urgent: true);
+
+        // Ses / parlaklık göstergesi
+        Volume.Changed += (level, muted) =>
+        {
+            if (!Settings.ShowOsd) return;
+            int pct = (int)Math.Round(level * 100);
+            string glyph = muted || pct == 0 ? "" : pct < 34 ? "" : pct < 67 ? "" : "";
+            ShowOsd(new PeekItem(L("Ses"), muted ? L("Sessiz") : $"%{pct}", glyph, null) { Level = muted ? 0 : level });
+        };
+        Brightness.Changed += level =>
+        {
+            if (Settings.ShowOsd)
+                ShowOsd(new PeekItem(L("Parlaklık"), $"%{level}", "", null) { Level = level / 100.0 });
+        };
+
+        // Pil
+        Power.PlugChanged += (ac, pct) =>
+        {
+            if (Settings.ShowBattery)
+                Peek(new PeekItem(ac ? L("Şarj oluyor") : L("Şarj aleti çıkarıldı"), L("Pil %{0}", pct),
+                    PowerService.Glyph(pct, ac), null), urgent: true);
+        };
+        Power.Low += pct =>
+        {
+            if (Settings.ShowBattery)
+                Peek(new PeekItem(L("Pil azaldı"), L("%{0} kaldı · şarj aletini takın", pct), PowerService.Glyph(pct, false), null),
+                    urgent: true);
+        };
+
+        // Zamanlayıcı ve takvim
+        Timer.Finished += (title, text) => Peek(new PeekItem(title, text, "", null), urgent: true);
+        Calendar.Upcoming += e => Peek(new PeekItem(e.Title,
+            L("{0} başlıyor", e.Start.ToString("HH:mm")) + (e.Location.Length > 0 ? $" · {e.Location}" : ""), "", null),
+            urgent: true);
 
         CheckJustUpdated();
 
         Bluetooth.Start();
+        Volume.Start();
+        Brightness.Start();
+        Power.Start();
+        Privacy.SetEnabled(Settings.ShowPrivacyDots);
+        Clipboard.SetEnabled(Settings.ClipboardHistory);
         await Media.StartAsync();
+        _ = Calendar.StartAsync();
 
         NotificationAccess = await Notifications.StartAsync();
         if (Demo.On)
@@ -121,6 +189,35 @@ public sealed class AppHost
         // Sessizdeyken çentikte bildirim açılmaz (güncelleme gibi acil olanlar hariç)
         if (!urgent && Settings.MuteNotifications) return;
         foreach (var w in _windows.Values) w.Peek(item, urgent);
+    }
+
+    /// <summary>Ses / parlaklık göstergesi: bildirim sessizdeyken de görünür, öncekinin yerine hemen geçer.</summary>
+    public void ShowOsd(PeekItem item)
+    {
+        foreach (var w in _windows.Values) w.ShowOsd(item);
+    }
+
+    /// <summary>Bir sürümün GitHub'daki yenilikler sayfasını açar.</summary>
+    public static void OpenReleaseNotes(string version) =>
+        OpenUrl($"https://github.com/{UpdateService.Repo}/releases/tag/v{version}");
+
+    public static void OpenUrl(string url)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) { App.LogError(ex); }
+    }
+
+    /// <summary>Uygulamayı yeniden başlatır (ör. dil değişince).</summary>
+    public static void Restart()
+    {
+        if (Environment.ProcessPath is not { } exe) return;
+        try
+        {
+            // Yeni kopya, bu kopya kapanıp tek-kopya kilidi serbest kalana kadar bekler
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe, App.RestartArg) { UseShellExecute = false });
+        }
+        catch (Exception ex) { App.LogError(ex); return; }
+        Application.Current.Shutdown();
     }
 
     /// <summary>
@@ -160,7 +257,10 @@ public sealed class AppHost
         t.Tick += (_, _) =>
         {
             t.Stop();
-            Peek(new PeekItem("M#Pro güncellendi", $"Sürüm {current} yüklendi · Yenilikler GitHub'da", "", null), urgent: true);
+            Peek(new PeekItem(L("M#Pro güncellendi"), L("Sürüm {0} yüklendi · yenilikler için tıklayın", current), "", null)
+            {
+                Click = () => OpenReleaseNotes(current)
+            }, urgent: true);
         };
         t.Start();
     }
@@ -201,6 +301,8 @@ public sealed class AppHost
         ApplyHotkey();
         UpdateTooltip();
         RebuildWindows();
+        Privacy.SetEnabled(Settings.ShowPrivacyDots);
+        Clipboard.SetEnabled(Settings.ClipboardHistory);
         if (Settings.AutoUpdate && !Updates.IsStoreVersion && !_updateTimer.IsEnabled) _updateTimer.Start();
 
         // Hava durumu: açıldıysa ya da konum değiştiyse hemen yenile
@@ -284,22 +386,22 @@ public sealed class AppHost
     {
         _tray?.ShowMenu(new[]
         {
-            new TrayIcon.MenuItem("Ayarlar", OpenSettings),
+            new TrayIcon.MenuItem(L("Ayarlar"), OpenSettings),
             TrayIcon.MenuItem.Separator,
-            new TrayIcon.MenuItem("Bildirimleri sessize al", ToggleMute, Settings.MuteNotifications),
-            new TrayIcon.MenuItem("Çentiği gizle\tCtrl+Win", ToggleHidden, Settings.Hidden),
-            new TrayIcon.MenuItem("Bilgisayar açılınca başlat", () =>
+            new TrayIcon.MenuItem(L("Bildirimleri sessize al"), ToggleMute, Settings.MuteNotifications),
+            new TrayIcon.MenuItem(L("Çentiği gizle") + "\tCtrl+Win", ToggleHidden, Settings.Hidden),
+            new TrayIcon.MenuItem(L("Bilgisayar açılınca başlat"), () =>
             {
                 Settings.StartWithWindows = !Settings.StartWithWindows;
                 Settings.Save();
             }, Settings.StartWithWindows),
-            new TrayIcon.MenuItem(Updates.IsStoreVersion ? "Microsoft Store'da aç" : "Güncellemeleri denetle", () =>
+            new TrayIcon.MenuItem(Updates.IsStoreVersion ? L("Microsoft Store'da aç") : L("Güncellemeleri denetle"), () =>
             {
                 if (Updates.IsStoreVersion) OpenStorePage();
                 else _ = Updates.CheckAsync(install: true);
             }),
             TrayIcon.MenuItem.Separator,
-            new TrayIcon.MenuItem("Çıkış", () => Application.Current.Shutdown())
+            new TrayIcon.MenuItem(L("Çıkış"), () => Application.Current.Shutdown())
         });
     }
 
@@ -319,5 +421,8 @@ public sealed class AppHost
     {
         _hotkey.Dispose();
         _tray?.Dispose();
+        Volume.Dispose();
+        Brightness.Dispose();
+        Clipboard.Dispose();
     }
 }

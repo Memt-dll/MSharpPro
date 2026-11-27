@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using MSharpPro.Services;
+using static MSharpPro.Services.Loc;
 
 namespace MSharpPro;
 
@@ -43,7 +45,18 @@ public partial class MainWindow : Window
     private DateTime _pendingSeekUntil;
 
     // Ölçeklenmemiş pencere boyutu
-    private const double BaseWidth = 480, BaseHeight = 270;
+    private const double BaseWidth = 560, BaseHeight = 270;
+    private const double ExpandedWidth = 520;
+
+    // Kısa bildirime tıklanınca yapılacak iş
+    private Action? _peekClick;
+    private bool _peekIsOsd;
+    // Canlı sekmeler: yalnızca panel açık ve sekme seçiliyken çalışır
+    private readonly DispatcherTimer _lyricsTimer;
+    private bool _statsOn;
+    // Raftan dışarı sürükleme
+    private Point _dragStart;
+    private bool _draggingOut;
 
     public MainWindow(AppHost host, MonitorInfo monitor)
     {
@@ -57,6 +70,23 @@ public partial class MainWindow : Window
 
         BtList.ItemsSource = host.Bluetooth.Devices;
         NotifList.ItemsSource = host.NotifItems;
+        CalendarList.ItemsSource = host.Calendar.Events;
+        ClipList.ItemsSource = host.Clipboard.Items;
+        ShelfList.ItemsSource = host.Shelf.Items;
+        // Liste şablonlarındaki ipuçları (şablonlar sonradan oluştuğu için kaynaktan, çevrilmiş olarak)
+        Resources["MuteAppTip"] = L("Bu uygulamanın bildirimlerini çentikte gösterme");
+        Resources["OpenAppTip"] = L("Uygulamayı aç");
+
+        _lyricsTimer = MakeTimer(300, UpdateLyricsLine, repeat: true);
+        PeekView.MouseLeftButtonUp += (_, _) =>
+        {
+            var click = _peekClick;
+            if (click == null) return;
+            _peekClick = null;
+            SetMode(Mode.Compact);
+            click();
+        };
+        HookShelfDrop();
 
         _hoverTimer = MakeTimer(140, () => { if (Island.IsMouseOver) SetMode(Mode.Expanded); });
         _leaveTimer = MakeTimer(350, () =>
@@ -122,7 +152,21 @@ public partial class MainWindow : Window
         _host.NotificationsChanged += UpdateNotifUi;
         _host.Bluetooth.Devices.CollectionChanged += OnBtChanged;
         _host.Weather.Changed += UpdateWeather;
+        _host.Timer.Changed += UpdateTimerUi;
+        _host.Calendar.Changed += UpdateCalendarUi;
+        _host.Privacy.Changed += UpdatePrivacy;
+        _host.Stats.Changed += UpdateStatsUi;
+        _host.Lyrics.Changed += UpdateLyricsUi;
+        _host.Clipboard.Items.CollectionChanged += OnClipChanged;
+        _host.Shelf.Items.CollectionChanged += OnShelfChanged;
 
+        Translate(this);
+        ApplyTabs();
+        UpdateTimerUi();
+        UpdateCalendarUi();
+        UpdatePrivacy();
+        OnClipChanged(null, EventArgs.Empty);
+        OnShelfChanged(null, EventArgs.Empty);
         ApplyFont();
         ApplyShape();
         UpdateWeather();
@@ -145,11 +189,22 @@ public partial class MainWindow : Window
         _host.NotificationsChanged -= UpdateNotifUi;
         _host.Bluetooth.Devices.CollectionChanged -= OnBtChanged;
         _host.Weather.Changed -= UpdateWeather;
-        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer, _clockTimer })
+        _host.Timer.Changed -= UpdateTimerUi;
+        _host.Calendar.Changed -= UpdateCalendarUi;
+        _host.Privacy.Changed -= UpdatePrivacy;
+        _host.Stats.Changed -= UpdateStatsUi;
+        _host.Lyrics.Changed -= UpdateLyricsUi;
+        _host.Clipboard.Items.CollectionChanged -= OnClipChanged;
+        _host.Shelf.Items.CollectionChanged -= OnShelfChanged;
+        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer, _clockTimer, _lyricsTimer })
             t.Stop();
+        if (_statsOn) { _statsOn = false; _host.Stats.Release(); }
         _eq?.Stop(this);
         BtList.ItemsSource = null;
         NotifList.ItemsSource = null;
+        CalendarList.ItemsSource = null;
+        ClipList.ItemsSource = null;
+        ShelfList.ItemsSource = null;
     }
 
     private void OnBtChanged(object? sender, EventArgs e) => BtEmpty.Visibility = Vis(_host.Bluetooth.Devices.Count == 0);
@@ -169,6 +224,8 @@ public partial class MainWindow : Window
         ApplyFont();
         ApplyShape();
         UpdateWeather();
+        ApplyTabs();
+        UpdatePrivacy();
         bool clockWas = CompactClock.Visibility == Visibility.Visible;
         bool mutedWas = CompactMuted.Visibility == Visibility.Visible;
         UpdateClock();
@@ -196,8 +253,8 @@ public partial class MainWindow : Window
 
     private static readonly Brush NotchBorder = Frozen(new LinearGradientBrush(new GradientStopCollection
     {
-        new(Color.FromArgb(0x00, 0, 0, 0), 0), new(Color.FromArgb(0x22, 0x5A, 0xB8, 0xFF), 0.6),
-        new(Color.FromArgb(0x66, 0x8A, 0x7C, 0xFF), 1)
+        new(Color.FromArgb(0x00, 0, 0, 0), 0), new(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF), 0.6),
+        new(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF), 1)
     }, 90));
     // Ada: iPhone'daki gibi neredeyse görünmez ince kenar (koyu duvar kağıdında da seçilsin diye)
     private static readonly Brush IslandBorder = Frozen(new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF)));
@@ -271,9 +328,13 @@ public partial class MainWindow : Window
         _mode = m;
         (double w, double h, double r, FrameworkElement view) = m switch
         {
-            Mode.Expanded => (450, 236, 30, ExpandedView),
-            Mode.Peek => (384, 66, 24, PeekView),
-            _ => ((_media.HasMedia ? 236 : _settings.ShowClock ? 196 : 170) + (_settings.MuteNotifications ? 20 : 0), 32, 16, (FrameworkElement)CompactView)
+            Mode.Expanded => (ExpandedWidth, 236d, 30d, (FrameworkElement)ExpandedView),
+            Mode.Peek => (384d, PeekLevel.Visibility == Visibility.Visible ? 74d : 66d, 24d, (FrameworkElement)PeekView),
+            _ => ((double)(_media.HasMedia ? 236 : _settings.ShowClock ? 196 : 170)
+                  + (_settings.MuteNotifications ? 20 : 0)
+                  + (_host.Timer.Active ? 58 : 0)
+                  + (MicDot.Visibility == Visibility.Visible ? 11 : 0)
+                  + (CamDot.Visibility == Visibility.Visible ? 13 : 0), 32d, 16d, (FrameworkElement)CompactView)
         };
         // Dynamic Island: tamamen yuvarlak hap (kompakt ve kısa bildirimde yarıçap = yüksekliğin yarısı),
         // açık panelde iPhone'daki gibi çok yuvarlak köşeler
@@ -291,7 +352,9 @@ public partial class MainWindow : Window
             _progressTimer.Stop();
         }
 
+        if (m != Mode.Peek) _peekClick = null;
         if (m != Mode.Compact) Native.BringToTop(_hwnd);
+        SyncLiveTabs();
         Island.CornerRadius = IsIsland ? new CornerRadius(r) : new CornerRadius(0, 0, r, r);
         AnimateSize(w, h);
         ShowView(view);
@@ -385,15 +448,44 @@ public partial class MainWindow : Window
         ShowPeekNow(item);
     }
 
-    private void ShowPeekNow(PeekItem p)
+    /// <summary>Ses / parlaklık göstergesi: sırayı beklemez, açık gösterge varsa yerinde günceller.</summary>
+    public void ShowOsd(PeekItem item)
     {
+        if (_closed || _hiddenForFullscreen || _mode == Mode.Expanded) return;
+        // Bir bildirim gösteriliyorsa onu kaybetme: gösterge bitince sıradan devam etsin
+        if (_mode == Mode.Peek && !_peekIsOsd && _peekQueue.Count < 5)
+            _peekQueue.Enqueue(new PeekItem(PeekTitle.Text, PeekText.Text, PeekGlyph.Text, PeekArtBrush.ImageSource as ImageSource));
+        ShowPeekNow(item, osd: true);
+    }
+
+    private void ShowPeekNow(PeekItem p, bool osd = false)
+    {
+        bool sameOsd = osd && _peekIsOsd && _mode == Mode.Peek;
+        _peekIsOsd = osd;
         PeekTitle.Text = p.Title;
         PeekText.Text = p.Text;
         PeekArtBrush.ImageSource = p.Image;
         PeekGlyph.Text = p.Image == null ? p.Glyph : "";
+        _peekClick = p.Click;
+        PeekView.Cursor = p.Click != null ? Cursors.Hand : null;
 
-        if (_mode == Mode.Peek) PeekView.Opacity = 0;
-        SetMode(Mode.Peek);
+        bool level = p.Level != null;
+        bool levelChanged = (PeekLevel.Visibility == Visibility.Visible) != level;
+        PeekLevel.Visibility = Vis(level);
+        if (level)
+        {
+            double w = Math.Max(0, PeekLevel.ActualWidth > 0 ? PeekLevel.ActualWidth : 300);
+            PeekLevelFill.Width = w * Math.Clamp(p.Level!.Value, 0, 1);
+        }
+
+        // Gösterge yerinde güncellenir (yanıp sönmesin)
+        if (!sameOsd || levelChanged)
+        {
+            if (_mode == Mode.Peek) PeekView.Opacity = 0;
+            SetMode(Mode.Peek);
+            _peekClick = p.Click;
+        }
+        _peekTimer.Interval = TimeSpan.FromMilliseconds(osd ? 1600 : 3500);
         _peekTimer.Stop();
         _peekTimer.Start();
     }
@@ -404,7 +496,7 @@ public partial class MainWindow : Window
     {
         if (_closed) return;
         bool has = _media.HasMedia;
-        MediaTitle.Text = has ? _media.Title : "Şu anda çalan bir şey yok";
+        MediaTitle.Text = has ? _media.Title : L("Şu anda çalan bir şey yok");
         MediaArtist.Text = has ? _media.Artist : "";
         MediaApp.Text = has ? _media.AppName : "";
         MediaArtBrush.ImageSource = _media.Art;
@@ -570,8 +662,6 @@ public partial class MainWindow : Window
         bool on = _settings.WeatherEnabled;
         bool has = on && w.HasData;
 
-        TabWeather.Visibility = Vis(on);
-        if (!on && TabWeather.IsChecked == true) TabMedia.IsChecked = true;
 
         CompactWeather.Visibility = Vis(has);
         if (has)
@@ -584,11 +674,11 @@ public partial class MainWindow : Window
             WeatherIcon.Source = w.Icon;
             WeatherTemp.Text = $"{w.Temp}°";
             WeatherCondition.Text = w.Condition;
-            WeatherHiLo.Text = $"En yüksek {w.High}°  ·  En düşük {w.Low}°";
-            string city = string.IsNullOrEmpty(_settings.WeatherCity) ? "Konumum" : _settings.WeatherCity;
+            WeatherHiLo.Text = L("En yüksek {0}°  ·  En düşük {1}°", w.High, w.Low);
+            string city = string.IsNullOrEmpty(_settings.WeatherCity) ? L("Konumum") : _settings.WeatherCity;
             int comma = city.IndexOf(',');
             WeatherCity.Text = comma > 0 ? city[..comma] : city;   // kartta yalnızca şehir adı
-            WeatherDetail.Text = $"Hissedilen {w.Feels}°  ·  Nem %{w.Humidity}  ·  Rüzgâr {w.Wind} km/s";
+            WeatherDetail.Text = L("Hissedilen {0}°  ·  Nem %{1}  ·  Rüzgâr {2} km/s", w.Feels, w.Humidity, w.Wind);
             WeatherDays.ItemsSource = w.Days;
         }
         else
@@ -598,7 +688,7 @@ public partial class MainWindow : Window
         }
         WeatherContent.Visibility = Vis(has);
         WeatherEmpty.Visibility = Vis(on && !has);
-        WeatherProblem.Text = w.Problem ?? "Hava durumu yükleniyor…";
+        WeatherProblem.Text = L(w.Problem ?? "Hava durumu yükleniyor…");
         UpdateEqualizer();
     }
 
@@ -615,7 +705,7 @@ public partial class MainWindow : Window
         bool muted = _settings.MuteNotifications;
         MuteGlyph.Text = muted ? "" : "";
         MuteBtn.Foreground = muted ? MutedBrush : (Brush)FindResource("ButtonIdleForeground");
-        MuteBtn.ToolTip = muted ? "Bildirimler sessizde · açmak için tıkla" : "Bildirimleri sessize al";
+        MuteBtn.ToolTip = muted ? L("Bildirimler sessizde · açmak için tıkla") : L("Bildirimleri sessize al");
         CompactMuted.Visibility = Vis(muted);
     }
 
@@ -641,12 +731,70 @@ public partial class MainWindow : Window
         BtPanel.Visibility = Vis(TabBt.IsChecked == true);
         NotifPanel.Visibility = Vis(TabNotif.IsChecked == true);
         WeatherPanel.Visibility = Vis(TabWeather.IsChecked == true);
+        LyricsPanel.Visibility = Vis(TabLyrics.IsChecked == true);
+        TimerPanel.Visibility = Vis(TabTimer.IsChecked == true);
+        CalendarPanel.Visibility = Vis(TabCalendar.IsChecked == true);
+        ClipPanel.Visibility = Vis(TabClipboard.IsChecked == true);
+        ShelfPanel.Visibility = Vis(TabShelf.IsChecked == true);
+        SysPanel.Visibility = Vis(TabSystem.IsChecked == true);
         if (TabNotif.IsChecked == true)
         {
             _host.MarkRead();
             // Sekme açılınca kontrol edilir (bir kayıt defteri okuması): kullanıcı Teams ayarını değiştirince ipucu kaybolur
             TeamsHint.Visibility = Vis(_host.NotificationAccess && NotificationService.TeamsUsesBuiltInNotifications());
         }
+        SyncLiveTabs();
+    }
+
+    /// <summary>Kullanıcının sekme sırasını ve görünürlüğünü uygular.</summary>
+    private void ApplyTabs()
+    {
+        var tabs = TabBar.Children.OfType<RadioButton>().ToList();
+        TabBar.Children.Clear();
+        RadioButton? firstVisible = null;
+        foreach (var id in _settings.TabOrder)
+        {
+            var tab = tabs.FirstOrDefault(t => (t.Tag as string) == id);
+            if (tab == null) continue;
+            tabs.Remove(tab);
+            TabBar.Children.Add(tab);
+            bool visible = !_settings.HiddenTabs.Contains(id)
+                           && (id != "weather" || _settings.WeatherEnabled)
+                           && (id != "lyrics" || _settings.LyricsEnabled)
+                           && (id != "clipboard" || _settings.ClipboardHistory);
+            tab.Visibility = Vis(visible);
+            if (visible) firstVisible ??= tab;
+        }
+        foreach (var rest in tabs) { rest.Visibility = Visibility.Collapsed; TabBar.Children.Add(rest); }
+
+        // Hepsi gizlendiyse müzik sekmesi kalsın
+        if (firstVisible == null) { TabMedia.Visibility = Visibility.Visible; firstVisible = TabMedia; }
+        var current = TabBar.Children.OfType<RadioButton>().FirstOrDefault(t => t.IsChecked == true);
+        if (current == null || current.Visibility != Visibility.Visible) firstVisible.IsChecked = true;
+    }
+
+    /// <summary>Canlı veri gerektiren sekmeleri (sözler, sistem) yalnızca görünürken çalıştırır.</summary>
+    private void SyncLiveTabs()
+    {
+        if (TabSystem == null) return;
+        bool open = _mode == Mode.Expanded && !_closed;
+        bool stats = open && TabSystem.IsChecked == true;
+        if (stats != _statsOn)
+        {
+            _statsOn = stats;
+            if (stats) _host.Stats.Acquire(); else _host.Stats.Release();
+        }
+
+        bool lyrics = open && TabLyrics.IsChecked == true;
+        if (lyrics)
+        {
+            LoadLyrics();
+            if (!_lyricsTimer.IsEnabled) _lyricsTimer.Start();
+        }
+        else _lyricsTimer.Stop();
+
+        if (open && TabCalendar.IsChecked == true && _host.Calendar.Events.Count == 0 && _host.Calendar.NoAccess)
+            _ = _host.Calendar.RefreshAsync();
     }
 
     private async void PlayPause_Click(object sender, RoutedEventArgs e) => await _media.PlayPauseAsync();
@@ -656,6 +804,264 @@ public partial class MainWindow : Window
     private void OpenBtSettings_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:bluetooth");
     private void OpenNotifSettings_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:privacy-notifications");
     private void ClearNotifs_Click(object sender, RoutedEventArgs e) => _host.ClearNotifications();
+
+    private void NotifItem_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject d && FindParent<Button>(d) != null) return; // sustur butonu
+        if ((sender as FrameworkElement)?.DataContext is NotifItem n) NotificationService.OpenApp(n);
+    }
+
+    private void NotifMuteApp_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not NotifItem n || n.App.Length == 0) return;
+        if (!_settings.MutedApps.Contains(n.App, StringComparer.OrdinalIgnoreCase))
+        {
+            _settings.MutedApps.Add(n.App);
+            _settings.Save();
+        }
+    }
+
+    // ---------------------------------------------------------------- gizlilik noktaları
+
+    private void UpdatePrivacy()
+    {
+        if (_closed) return;
+        bool on = _settings.ShowPrivacyDots;
+        bool micWas = MicDot.Visibility == Visibility.Visible, camWas = CamDot.Visibility == Visibility.Visible;
+        MicDot.Visibility = Vis(on && _host.Privacy.MicInUse);
+        CamDot.Visibility = Vis(on && _host.Privacy.CamInUse);
+        bool changed = micWas != (MicDot.Visibility == Visibility.Visible) || camWas != (CamDot.Visibility == Visibility.Visible);
+        if (changed && _mode == Mode.Compact && IsLoaded) SetMode(Mode.Compact);
+    }
+
+    // ---------------------------------------------------------------- zamanlayıcı
+
+    private void UpdateTimerUi()
+    {
+        if (_closed) return;
+        var t = _host.Timer;
+        bool wasActive = CompactTimer.Visibility == Visibility.Visible;
+        CompactTimer.Visibility = Vis(t.Active);
+        string text = TimerService.Format(t.Remaining);
+        CompactTimerText.Text = text;
+        TimerBig.Text = t.Active ? text : "0:00";
+        TimerPhase.Text = t.PhaseText;
+        TimerPlayBtn.Content = t.Running ? "" : "";
+        PomodoroText.Text = $"Pomodoro · {_settings.PomodoroFocus}/{_settings.PomodoroBreak}";
+        double track = (TimerFill.Parent as FrameworkElement)?.ActualWidth ?? 0;
+        TimerFill.Width = t.Active && t.Total.TotalSeconds > 0
+            ? track * Math.Clamp(1 - t.Remaining.TotalSeconds / t.Total.TotalSeconds, 0, 1) : 0;
+        if (wasActive != t.Active && _mode == Mode.Compact && IsLoaded) SetMode(Mode.Compact);
+    }
+
+    private void TimerPreset_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is string s && int.TryParse(s, out int min))
+            _host.Timer.StartCountdown(TimeSpan.FromMinutes(min));
+    }
+
+    private void TimerAdd_Click(object sender, RoutedEventArgs e) => _host.Timer.Add(TimeSpan.FromMinutes(1));
+    private void Pomodoro_Click(object sender, RoutedEventArgs e) => _host.Timer.StartPomodoro();
+    private void TimerStop_Click(object sender, RoutedEventArgs e) => _host.Timer.Stop();
+
+    private void TimerPlay_Click(object sender, RoutedEventArgs e)
+    {
+        if (_host.Timer.Active) _host.Timer.PauseResume();
+        else _host.Timer.StartCountdown(TimeSpan.FromMinutes(5));
+    }
+
+    // ---------------------------------------------------------------- takvim
+
+    private void UpdateCalendarUi()
+    {
+        if (_closed) return;
+        var c = _host.Calendar;
+        CalendarEmpty.Visibility = Vis(c.Events.Count == 0);
+        CalendarProblem.Text = c.Problem ?? "";
+        CalendarAccessBtn.Visibility = Vis(c.NoAccess);
+    }
+
+    private void OpenCalendarSettings_Click(object sender, RoutedEventArgs e) => OpenUri("ms-settings:privacy-calendar");
+    private async void CalendarRefresh_Click(object sender, RoutedEventArgs e) => await _host.Calendar.RefreshAsync();
+
+    // ---------------------------------------------------------------- kopyalananlar
+
+    private void OnClipChanged(object? sender, EventArgs e)
+    {
+        if (_closed) return;
+        bool any = _host.Clipboard.Items.Count > 0;
+        ClipEmpty.Visibility = Vis(!any);
+        ClipClearBtn.Visibility = Vis(any);
+        ClipHint.Visibility = Vis(any);
+    }
+
+    private void ClipItem_Click(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not ClipItem item) return;
+        _host.Clipboard.Copy(item);
+        ClipHint.Text = L("Kopyalandı");
+        var reset = MakeTimer(1500, () => ClipHint.Text = L("Tıklayınca yeniden kopyalanır · yalnızca bellekte tutulur"));
+        reset.Start();
+    }
+
+    private void ClipClear_Click(object sender, RoutedEventArgs e) => _host.Clipboard.Clear();
+
+    // ---------------------------------------------------------------- dosya rafı
+
+    private void OnShelfChanged(object? sender, EventArgs e)
+    {
+        if (_closed) return;
+        bool any = _host.Shelf.Items.Count > 0;
+        ShelfEmpty.Visibility = Vis(!any);
+        ShelfClearBtn.Visibility = Vis(any);
+    }
+
+    private void HookShelfDrop()
+    {
+        Island.DragEnter += (_, e) =>
+        {
+            if (_draggingOut || !e.Data.GetDataPresent(DataFormats.FileDrop) || TabShelf.Visibility != Visibility.Visible)
+            {
+                e.Effects = DragDropEffects.None;
+                e.Handled = true;
+                return;
+            }
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+            _leaveTimer.Stop();
+            _hoverTimer.Stop();
+            TabShelf.IsChecked = true;
+            if (_mode != Mode.Expanded) SetMode(Mode.Expanded);
+        };
+        Island.DragOver += (_, e) =>
+        {
+            e.Effects = !_draggingOut && e.Data.GetDataPresent(DataFormats.FileDrop) && TabShelf.Visibility == Visibility.Visible
+                ? DragDropEffects.Copy : DragDropEffects.None;
+            e.Handled = true;
+        };
+        Island.DragLeave += (_, _) => _leaveTimer.Start();
+        Island.Drop += (_, e) =>
+        {
+            if (!_draggingOut && e.Data.GetData(DataFormats.FileDrop) is string[] files) _host.Shelf.Add(files);
+            e.Handled = true;
+            _leaveTimer.Start();
+        };
+    }
+
+    private void ShelfItem_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStart = e.GetPosition(this);
+        if (e.ClickCount == 2 && (sender as FrameworkElement)?.DataContext is ShelfItem item) OpenUri(item.Path);
+    }
+
+    private void ShelfItem_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (e.LeftButton != MouseButtonState.Pressed || _draggingOut) return;
+        if ((sender as FrameworkElement)?.DataContext is not ShelfItem item) return;
+        var d = e.GetPosition(this) - _dragStart;
+        if (Math.Abs(d.X) < 6 && Math.Abs(d.Y) < 6) return;
+        _draggingOut = true;
+        try
+        {
+            var data = new DataObject(DataFormats.FileDrop, new[] { item.Path });
+            DragDrop.DoDragDrop((DependencyObject)sender, data, DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link);
+        }
+        catch (Exception ex) { App.LogError(ex); }
+        finally { _draggingOut = false; }
+        // Taşındıysa raftan da kaldır
+        if (!System.IO.File.Exists(item.Path) && !System.IO.Directory.Exists(item.Path)) _host.Shelf.Remove(item);
+        _leaveTimer.Start();
+    }
+
+    private void ShelfItem_Remove(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true; // çentik menüsü açılmasın
+        if ((sender as FrameworkElement)?.DataContext is ShelfItem item) _host.Shelf.Remove(item);
+    }
+
+    private void ShelfClear_Click(object sender, RoutedEventArgs e) => _host.Shelf.Clear();
+
+    // ---------------------------------------------------------------- sistem
+
+    private void UpdateStatsUi()
+    {
+        if (_closed || !_statsOn) return;
+        var s = _host.Stats;
+        CpuText.Text = $"%{s.CpuNow:0}";
+        MemText.Text = $"%{s.MemPercent:0}";
+        MemDetail.Text = L("{0:0.0} / {1:0} GB kullanımda", s.MemUsedGb, s.MemTotalGb);
+        double memTrack = (MemFill.Parent as FrameworkElement)?.ActualWidth ?? 0;
+        MemFill.Width = memTrack * s.MemPercent / 100;
+        NetDown.Text = "↓ " + StatsService.Speed(s.DownKBs);
+        NetUp.Text = "↑ " + StatsService.Speed(s.UpKBs);
+        double w = Math.Max(10, (CpuSpark.Parent as FrameworkElement)?.ActualWidth ?? 120);
+        CpuSpark.Data = StatsService.Spark(s.Cpu, 100, w, CpuSpark.Height);
+        NetSpark.Data = StatsService.Spark(s.Net, 64, w, NetSpark.Height);
+    }
+
+    // ---------------------------------------------------------------- şarkı sözleri
+
+    private void LoadLyrics()
+    {
+        if (!_settings.LyricsEnabled) return;
+        var p = _media.HasMedia ? _media.GetProgress() : null;
+        _host.Lyrics.Load(_media.HasMedia ? _media.Title : "", _media.HasMedia ? _media.Artist : "", p?.Duration);
+        UpdateLyricsUi();
+    }
+
+    private int _lyricIndex = -2;
+    private string _lyricKey = "";
+
+    private void UpdateLyricsUi()
+    {
+        if (_closed) return;
+        var ly = _host.Lyrics;
+        bool synced = ly.Lines is { Count: > 0 };
+        bool plain = !synced && !string.IsNullOrEmpty(ly.Plain);
+        LyricsSynced.Visibility = Vis(synced);
+        LyricsPlainBox.Visibility = Vis(plain);
+        LyricsEmpty.Visibility = Vis(!synced && !plain);
+        LyricsStatus.Text = ly.Status;
+        if (plain) LyricsPlain.Text = ly.Plain;
+        _lyricIndex = -2;
+        UpdateLyricsLine();
+    }
+
+    private void UpdateLyricsLine()
+    {
+        if (_closed) return;
+        // Şarkı değiştiyse yeni sözleri iste
+        string key = _media.HasMedia ? $"{_media.Artist}|{_media.Title}" : "";
+        if (key != _lyricKey)
+        {
+            _lyricKey = key;
+            if (TabLyrics.IsChecked == true && _mode == Mode.Expanded) LoadLyrics();
+            return;
+        }
+        var lines = _host.Lyrics.Lines;
+        if (lines is not { Count: > 0 }) return;
+        var p = _media.GetProgress();
+        if (p == null) return;
+        int i = _host.Lyrics.IndexAt(p.Value.Position);
+        if (i == _lyricIndex) return;
+        _lyricIndex = i;
+        string At(int k) => k >= 0 && k < lines.Count ? (lines[k].Text.Length > 0 ? lines[k].Text : "♪") : "";
+        LyricPrev2.Text = At(i - 2);
+        LyricPrev1.Text = At(i - 1);
+        LyricNow.Text = i < 0 ? "♪" : At(i);
+        LyricNext1.Text = At(i + 1);
+        LyricNext2.Text = At(i + 2);
+    }
+
+    private static T? FindParent<T>(DependencyObject? d) where T : DependencyObject
+    {
+        while (d != null)
+        {
+            if (d is T t) return t;
+            d = d is Visual ? VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        }
+        return null;
+    }
 
     // ---------------------------------------------------------------- yardımcılar
 

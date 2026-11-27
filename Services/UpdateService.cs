@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Text.Json;
 using Microsoft.Win32;
 
+using static MSharpPro.Services.Loc;
+
 namespace MSharpPro.Services;
 
 /// <summary>
@@ -50,7 +52,7 @@ public sealed class UpdateService
         _busy = true;
         try
         {
-            Set(UpdateState.Checking, "Güncellemeler denetleniyor…");
+            Set(UpdateState.Checking, L("Güncellemeler denetleniyor…"));
             using var http = CreateClient();
 
             // Önce github.com'un normal "en son sürüm" adresi (saatlik sınırı yok); olmazsa API.
@@ -61,19 +63,19 @@ public sealed class UpdateService
 
             if (Latest == null || Latest <= Current || _assetUrl == null)
             {
-                Set(UpdateState.UpToDate, $"M#Pro güncel (sürüm {Fmt(Current)})");
+                Set(UpdateState.UpToDate, L("M#Pro güncel (sürüm {0})", Fmt(Current)));
                 return;
             }
 
-            Set(UpdateState.Available, $"Yeni sürüm hazır: {Fmt(Latest)}");
+            Set(UpdateState.Available, L("Yeni sürüm hazır: {0}", Fmt(Latest)));
             if (install) await DownloadAndInstallAsync(http);
         }
         catch (Exception ex)
         {
             LastCheck = DateTime.Now;
             Set(UpdateState.Error, ex is HttpRequestException { StatusCode: null } or TaskCanceledException
-                ? "Güncelleme denetlenemedi (internet bağlantısını kontrol edin)"
-                : "Güncelleme denetlenemedi, daha sonra tekrar denenecek");
+                ? L("Güncelleme denetlenemedi (internet bağlantısını kontrol edin)")
+                : L("Güncelleme denetlenemedi, daha sonra tekrar denenecek"));
             App.LogError(ex);
         }
         finally
@@ -95,7 +97,7 @@ public sealed class UpdateService
         }
         catch (Exception ex)
         {
-            Set(UpdateState.Error, "Güncelleme indirilemedi");
+            Set(UpdateState.Error, L("Güncelleme indirilemedi"));
             App.LogError(ex);
         }
         finally { _busy = false; }

@@ -3,6 +3,8 @@ using System.Net.Http;
 using System.Text.Json;
 using Windows.Devices.Geolocation;
 
+using static MSharpPro.Services.Loc;
+
 namespace MSharpPro.Services;
 
 /// <summary>
@@ -64,7 +66,7 @@ public sealed class WeatherService
                 // Şehir seçilmemiş: Windows konumu izinliyse onu kullan (sessizce)
                 if (!await TryUseDeviceLocationAsync())
                 {
-                    Problem = "Ayarlar'dan şehrinizi seçin";
+                    Problem = L("Ayarlar'dan şehrinizi seçin");
                     HasData = false;
                     Changed?.Invoke();
                     return;
@@ -100,9 +102,9 @@ public sealed class WeatherService
             for (int i = 0; i < times.Count; i++)
             {
                 string name = i == 0
-                    ? "Bugün"
+                    ? L("Bugün")
                     : DateTime.TryParse(times[i], Inv, DateTimeStyles.None, out var d)
-                        ? Tr.DateTimeFormat.GetAbbreviatedDayName(d.DayOfWeek)
+                        ? (Loc.English ? System.Globalization.CultureInfo.GetCultureInfo("en-US") : Tr).DateTimeFormat.GetAbbreviatedDayName(d.DayOfWeek)
                         : "";
                 double left = (mins[i] - lo) / span, fill = Math.Max(0.06, (maxs[i] - mins[i]) / span);
                 days.Add(new Day(name, WeatherIcons.Get(Describe(codes[i], true).Kind), (int)Math.Round(maxs[i]), (int)Math.Round(mins[i]))
@@ -122,7 +124,7 @@ public sealed class WeatherService
         }
         catch (Exception ex)
         {
-            Problem = HasData ? null : "Hava durumu alınamadı";
+            Problem = HasData ? null : L("Hava durumu alınamadı");
             App.LogError(ex);
         }
         finally
@@ -191,17 +193,17 @@ public sealed class WeatherService
     /// <summary>WMO hava kodu → simge türü ve Türkçe açıklama.</summary>
     private static (WeatherKind Kind, string Text) Describe(int code, bool day) => code switch
     {
-        0 => (day ? WeatherKind.Sun : WeatherKind.Moon, day ? "Güneşli" : "Açık"),
-        1 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, "Az bulutlu"),
-        2 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, "Parçalı bulutlu"),
-        3 => (WeatherKind.Cloud, "Kapalı"),
-        45 or 48 => (WeatherKind.Fog, "Sisli"),
-        >= 51 and <= 57 => (WeatherKind.Drizzle, "Çisenti"),
-        >= 61 and <= 67 => (WeatherKind.Rain, "Yağmurlu"),
-        >= 71 and <= 77 => (WeatherKind.Snow, "Karlı"),
-        >= 80 and <= 82 => (WeatherKind.Rain, "Sağanak yağışlı"),
-        85 or 86 => (WeatherKind.Snow, "Kar sağanağı"),
-        >= 95 => (WeatherKind.Thunder, "Gök gürültülü"),
-        _ => (WeatherKind.Cloud, "Bulutlu")
+        0 => (day ? WeatherKind.Sun : WeatherKind.Moon, day ? L("Güneşli") : (Loc.English ? "Clear" : "Açık")),
+        1 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, L("Az bulutlu")),
+        2 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, L("Parçalı bulutlu")),
+        3 => (WeatherKind.Cloud, L("Kapalı")),
+        45 or 48 => (WeatherKind.Fog, L("Sisli")),
+        >= 51 and <= 57 => (WeatherKind.Drizzle, L("Çisenti")),
+        >= 61 and <= 67 => (WeatherKind.Rain, L("Yağmurlu")),
+        >= 71 and <= 77 => (WeatherKind.Snow, L("Karlı")),
+        >= 80 and <= 82 => (WeatherKind.Rain, L("Sağanak yağışlı")),
+        85 or 86 => (WeatherKind.Snow, L("Kar sağanağı")),
+        >= 95 => (WeatherKind.Thunder, L("Gök gürültülü")),
+        _ => (WeatherKind.Cloud, L("Bulutlu"))
     };
 }

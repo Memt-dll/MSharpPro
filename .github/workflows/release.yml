@@ -27,6 +27,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # sürüm notları için önceki etiketler gerekli
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -63,6 +65,20 @@ jobs:
           name: MSharpPro-Setup
           path: dist/*.exe
 
+      # Sürüm notları: önceki sürümden bu yana commit mesajları (uygulamadaki "Yenilikler" bunu açar)
+      - name: Sürüm notlarını hazırla
+        shell: pwsh
+        run: |
+          $prev = git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>$null
+          $range = if ($prev) { "$prev..HEAD" } else { "HEAD" }
+          $lines = git log $range --no-merges --pretty=format:'%s%n%b' |
+            Where-Object { $_.Trim() -and $_ -notmatch '\[skip ci\]' -and $_ -notmatch '^Co-Authored-By' } |
+            ForEach-Object { if ($_ -match '^\s*- ') { $_ } else { "- $_" } }
+          if (-not $lines) { $lines = @('- Küçük iyileştirmeler') }
+          ("## Yenilikler`n`n" + ($lines -join "`n")) | Out-File notes.md -Encoding utf8
+          Get-Content notes.md
+          exit 0
+
       - name: GitHub Release oluştur
         uses: softprops/action-gh-release@v2
         with:
@@ -70,7 +86,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: M#Pro ${{ env.VERSION }}
           files: dist/*.exe
-          generate_release_notes: true
+          body_path: notes.md
           make_latest: true
 
       # Repodaki Setup/MSharpPro-Setup.exe dosyasını yeni sürümle güncelle,
