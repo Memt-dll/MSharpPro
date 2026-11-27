@@ -999,6 +999,25 @@ public partial class MainWindow : Window
         NetSpark.Data = StatsService.Spark(s.Net, 64, w, NetSpark.Height);
     }
 
+    private async void FreeMem_Click(object sender, RoutedEventArgs e)
+    {
+        FreeMemBtn.IsEnabled = false;
+        FreeMemText.Text = L("Boşaltılıyor…");
+        long freed = 0;
+        try { freed = await StatsService.FreeMemoryAsync(); }
+        catch (Exception ex) { App.LogError(ex); }
+        if (_closed) return;
+        double mb = Math.Max(0, freed) / 1048576.0;
+        FreeMemText.Text = mb < 1 ? L("Zaten boş")
+            : L("{0} boşaltıldı", mb >= 1024 ? $"{mb / 1024:0.0} GB" : $"{mb:0} MB");
+        var reset = MakeTimer(3500, () =>
+        {
+            FreeMemText.Text = L("Belleği boşalt");
+            FreeMemBtn.IsEnabled = true;
+        });
+        reset.Start();
+    }
+
     // ---------------------------------------------------------------- şarkı sözleri
 
     private void LoadLyrics()

@@ -752,10 +752,19 @@
                                     <TextBlock Text="Bellek" Style="{StaticResource Caption}"/>
                                     <TextBlock x:Name="MemText" Text="–" FontSize="24" FontWeight="SemiBold" Margin="0,2,0,0"/>
                                     <TextBlock x:Name="MemDetail" FontSize="11" Foreground="#99FFFFFF"/>
-                                    <Grid Height="6" Margin="0,14,0,0">
+                                    <Grid Height="6" Margin="0,10,0,0">
                                         <Border Background="#24FFFFFF" CornerRadius="3"/>
                                         <Border x:Name="MemFill" Background="#E9E8E1" CornerRadius="3" HorizontalAlignment="Left" Width="0"/>
                                     </Grid>
+                                    <Button x:Name="FreeMemBtn" Style="{StaticResource PillBtn}" HorizontalAlignment="Left"
+                                            Margin="0,10,0,0" Click="FreeMem_Click"
+                                            ToolTip="Uygulamaların kullanmadığı belleği geri alır; hiçbir uygulama kapanmaz">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE945;" FontFamily="{StaticResource Icons}" FontSize="10"
+                                                       VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                            <TextBlock x:Name="FreeMemText" Text="Belleği boşalt"/>
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                             </Border>
                             <Border Background="#0FFFFFFF" CornerRadius="16" Padding="12,10" Margin="5,0,0,0">

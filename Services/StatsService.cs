@@ -99,6 +99,41 @@ public sealed class StatsService
         while (q.Count > Samples) q.Dequeue();
     }
 
+    [DllImport("kernel32.dll")] private static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] private static extern bool CloseHandle(IntPtr h);
+    [DllImport("kernel32.dll", EntryPoint = "K32EmptyWorkingSet")] private static extern bool EmptyWorkingSet(IntPtr h);
+
+    private static ulong AvailableBytes()
+    {
+        var m = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
+        return GlobalMemoryStatusEx(ref m) ? m.ullAvailPhys : 0;
+    }
+
+    /// <summary>
+    /// Belleği boşaltır: erişilebilen tüm uygulamaların kullanmadığı bellek sayfalarını geri ister
+    /// (Windows'un "çalışma kümesini boşalt" işlemi; yönetici izni gerekmez, yalnızca kullanıcının kendi uygulamaları).
+    /// Uygulamalar kapanmaz, veri kaybı olmaz; gerekirse sayfalar geri yüklenir. Boşalan bayt sayısını döndürür.
+    /// </summary>
+    public static Task<long> FreeMemoryAsync() => Task.Run(async () =>
+    {
+        ulong before = AvailableBytes();
+        foreach (var p in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                // PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_SET_QUOTA
+                IntPtr h = OpenProcess(0x1000 | 0x0100, false, p.Id);
+                if (h == IntPtr.Zero) continue;
+                EmptyWorkingSet(h);
+                CloseHandle(h);
+            }
+            catch { }
+            finally { p.Dispose(); }
+        }
+        await Task.Delay(800); // Windows'un sayıları güncellemesi için
+        return (long)AvailableBytes() - (long)before;
+    });
+
     public static string Speed(double kbs) => kbs >= 1024 ? $"{kbs / 1024:0.0} MB/s" : $"{kbs:0} KB/s";
 
     /// <summary>Değerlerden küçük bir çizgi grafiği (0..max, genişlik x yükseklik).</summary>

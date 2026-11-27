@@ -126,6 +126,12 @@ public static partial class Loc
         ["Bellek"] = "Memory",
         ["Ağ"] = "Network",
         ["{0:0.0} / {1:0} GB kullanımda"] = "{0:0.0} / {1:0} GB in use",
+        ["Belleği boşalt"] = "Free up memory",
+        ["Boşaltılıyor…"] = "Freeing…",
+        ["{0} boşaltıldı"] = "{0} freed",
+        ["Zaten boş"] = "Already lean",
+        ["Uygulamaların kullanmadığı belleği geri alır; hiçbir uygulama kapanmaz"] =
+            "Reclaims memory apps aren't using; no app is closed",
 
         // ---- Çentik: göstergeler
         ["Ses"] = "Volume",
