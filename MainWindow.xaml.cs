@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private bool _peekIsOsd;
     // Canlı sekmeler: yalnızca panel açık ve sekme seçiliyken çalışır
     private readonly DispatcherTimer _lyricsTimer;
+    private readonly DispatcherTimer _controlTimer;
     private bool _statsOn;
     // Raftan dışarı sürükleme
     private Point _dragStart;
@@ -78,6 +79,9 @@ public partial class MainWindow : Window
         Resources["OpenAppTip"] = L("Uygulamayı aç");
 
         _lyricsTimer = MakeTimer(300, UpdateLyricsLine, repeat: true);
+        _controlTimer = MakeTimer(2000, () => _ = _host.Audio.RefreshAppsAsync(), repeat: true);
+        OutputList.ItemsSource = host.Audio.Outputs;
+        AppVolumeList.ItemsSource = host.Audio.Apps;
         PeekView.MouseLeftButtonUp += (_, _) =>
         {
             var click = _peekClick;
@@ -159,6 +163,9 @@ public partial class MainWindow : Window
         _host.Lyrics.Changed += UpdateLyricsUi;
         _host.Clipboard.Items.CollectionChanged += OnClipChanged;
         _host.Shelf.Items.CollectionChanged += OnShelfChanged;
+        _host.Audio.MicChanged += UpdateQuickUi;
+        _host.KeepAwake.Changed += UpdateQuickUi;
+        _host.Audio.Apps.CollectionChanged += OnAppsChanged;
 
         Translate(this);
         ApplyTabs();
@@ -167,6 +174,8 @@ public partial class MainWindow : Window
         UpdatePrivacy();
         OnClipChanged(null, EventArgs.Empty);
         OnShelfChanged(null, EventArgs.Empty);
+        UpdateQuickUi();
+        OnAppsChanged(null, EventArgs.Empty);
         ApplyFont();
         ApplyShape();
         UpdateWeather();
@@ -196,7 +205,10 @@ public partial class MainWindow : Window
         _host.Lyrics.Changed -= UpdateLyricsUi;
         _host.Clipboard.Items.CollectionChanged -= OnClipChanged;
         _host.Shelf.Items.CollectionChanged -= OnShelfChanged;
-        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer, _clockTimer, _lyricsTimer })
+        _host.Audio.MicChanged -= UpdateQuickUi;
+        _host.KeepAwake.Changed -= UpdateQuickUi;
+        _host.Audio.Apps.CollectionChanged -= OnAppsChanged;
+        foreach (var t in new[] { _hoverTimer, _leaveTimer, _peekTimer, _trimTimer, _fullscreenTimer, _progressTimer, _rehideTimer, _revealCheckTimer, _clockTimer, _lyricsTimer, _controlTimer })
             t.Stop();
         if (_statsOn) { _statsOn = false; _host.Stats.Release(); }
         _eq?.Stop(this);
@@ -205,6 +217,8 @@ public partial class MainWindow : Window
         CalendarList.ItemsSource = null;
         ClipList.ItemsSource = null;
         ShelfList.ItemsSource = null;
+        OutputList.ItemsSource = null;
+        AppVolumeList.ItemsSource = null;
     }
 
     private void OnBtChanged(object? sender, EventArgs e) => BtEmpty.Visibility = Vis(_host.Bluetooth.Devices.Count == 0);
@@ -334,6 +348,8 @@ public partial class MainWindow : Window
                   + (_settings.MuteNotifications ? 20 : 0)
                   + (_host.Timer.Active ? 58 : 0)
                   + (MicDot.Visibility == Visibility.Visible ? 11 : 0)
+                  + (CompactMicOff.Visibility == Visibility.Visible ? 18 : 0)
+                  + (CompactAwake.Visibility == Visibility.Visible ? 18 : 0)
                   + (CamDot.Visibility == Visibility.Visible ? 13 : 0), 32d, 16d, (FrameworkElement)CompactView)
         };
         // Dynamic Island: tamamen yuvarlak hap (kompakt ve kısa bildirimde yarıçap = yüksekliğin yarısı),
@@ -737,6 +753,7 @@ public partial class MainWindow : Window
         ClipPanel.Visibility = Vis(TabClipboard.IsChecked == true);
         ShelfPanel.Visibility = Vis(TabShelf.IsChecked == true);
         SysPanel.Visibility = Vis(TabSystem.IsChecked == true);
+        ControlPanel.Visibility = Vis(TabControl.IsChecked == true);
         if (TabNotif.IsChecked == true)
         {
             _host.MarkRead();
@@ -785,6 +802,16 @@ public partial class MainWindow : Window
             if (stats) _host.Stats.Acquire(); else _host.Stats.Release();
         }
 
+        bool control = open && TabControl.IsChecked == true;
+        if (control && !_controlTimer.IsEnabled)
+        {
+            _host.Audio.RefreshOutputs();
+            _ = _host.Audio.RefreshAppsAsync();
+            _ = RefreshAirplaneAsync();
+            _controlTimer.Start();
+        }
+        else if (!control) _controlTimer.Stop();
+
         bool lyrics = open && TabLyrics.IsChecked == true;
         if (lyrics)
         {
@@ -819,6 +846,76 @@ public partial class MainWindow : Window
             _settings.MutedApps.Add(n.App);
             _settings.Save();
         }
+    }
+
+    // ---------------------------------------------------------------- denetim
+
+    private static readonly Brush TileOn = Frozen(new SolidColorBrush(Color.FromRgb(0xF2, 0xF1, 0xEB)));
+    private static readonly Brush TileOnText = Frozen(new SolidColorBrush(Color.FromRgb(0x22, 0x26, 0x22)));
+    private static readonly Brush TileOff = Frozen(new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF)));
+    private static readonly Brush TileWarn = Frozen(new SolidColorBrush(Color.FromRgb(0xFF, 0x5A, 0x5F)));
+
+    private static string OnOff(bool on) => English ? (on ? "On" : "Off") : (on ? "Açık" : "Kapalı");
+
+    private static void SetTile(Button tile, bool on, Brush? onBrush = null)
+    {
+        tile.Background = on ? onBrush ?? TileOn : TileOff;
+        tile.Foreground = on && onBrush == null ? TileOnText : Brushes.White;
+    }
+
+    /// <summary>Mikrofon / uyutma / uçak modu düğmeleri ve çentikteki küçük simgeler.</summary>
+    private void UpdateQuickUi()
+    {
+        if (_closed) return;
+        var a = _host.Audio;
+        bool micOff = a.HasMic && a.MicMuted;
+        SetTile(MicTile, micOff, TileWarn);
+        MicTileState.Text = !a.HasMic ? L("Bulunamadı") : OnOff(!micOff);
+        MicTile.ToolTip = L("Tüm uygulamalarda sessize al / aç · Ctrl+Alt+M");
+
+        var k = _host.KeepAwake;
+        SetTile(AwakeTile, k.Active);
+        AwakeTileState.Text = k.StateText;
+
+        SetTile(AirplaneTile, _host.Airplane.On);
+        AirplaneTileState.Text = OnOff(_host.Airplane.On);
+
+        bool micWas = CompactMicOff.Visibility == Visibility.Visible, awakeWas = CompactAwake.Visibility == Visibility.Visible;
+        CompactMicOff.Visibility = Vis(micOff);
+        CompactAwake.Visibility = Vis(k.Active);
+        if ((micWas != micOff || awakeWas != k.Active) && _mode == Mode.Compact && IsLoaded) SetMode(Mode.Compact);
+    }
+
+    private async Task RefreshAirplaneAsync()
+    {
+        await _host.Airplane.RefreshAsync();
+        UpdateQuickUi();
+    }
+
+    private void OnAppsChanged(object? sender, EventArgs e)
+    {
+        if (!_closed) AppVolumeEmpty.Visibility = Vis(_host.Audio.Apps.Count == 0);
+    }
+
+    private void MicTile_Click(object sender, RoutedEventArgs e) => _host.ToggleMic();
+    private void AwakeTile_Click(object sender, RoutedEventArgs e) => _host.KeepAwake.Cycle();
+
+    private async void AirplaneTile_Click(object sender, RoutedEventArgs e)
+    {
+        AirplaneTile.IsEnabled = false;
+        await _host.ToggleAirplaneAsync();
+        AirplaneTile.IsEnabled = true;
+        UpdateQuickUi();
+    }
+
+    private void Output_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is AudioOutput o && !o.IsDefault) _host.Audio.SetDefaultOutput(o);
+    }
+
+    private void Join_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is CalendarEvent ev && ev.JoinUrl.Length > 0) AppHost.OpenUrl(ev.JoinUrl);
     }
 
     // ---------------------------------------------------------------- gizlilik noktaları

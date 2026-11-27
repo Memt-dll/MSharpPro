@@ -48,6 +48,10 @@ public sealed class AppHost
     public ShelfService Shelf { get; } = new();
     public StatsService Stats { get; } = new();
     public LyricsService Lyrics { get; } = new();
+    public AudioService Audio { get; }
+    public KeepAwakeService KeepAwake { get; } = new();
+    public AirplaneService Airplane { get; } = new();
+    private readonly GlobalHotkey _micHotkey = new(GlobalHotkey.MOD_CONTROL | GlobalHotkey.MOD_ALT, 0x4D /* M */);
     private readonly DispatcherTimer _weatherTimer;
     private string _weatherKey = "";
     public ObservableCollection<NotifItem> NotifItems { get; } = new();
@@ -68,6 +72,7 @@ public sealed class AppHost
         Timer = new TimerService(Settings);
         Calendar = new CalendarService(Settings);
         Clipboard = new ClipboardService(Settings);
+        Audio = new AudioService(ui);
         _weatherTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMinutes(30) };
         _weatherTimer.Tick += async (_, _) => await Weather.RefreshAsync();
 
@@ -148,8 +153,15 @@ public sealed class AppHost
         // Zamanlayıcı ve takvim
         Timer.Finished += (title, text) => Peek(new PeekItem(title, text, "", null), urgent: true);
         Calendar.Upcoming += e => Peek(new PeekItem(e.Title,
-            L("{0} başlıyor", e.Start.ToString("HH:mm")) + (e.Location.Length > 0 ? $" · {e.Location}" : ""), "", null),
-            urgent: true);
+            L("{0} başlıyor", e.Start.ToString("HH:mm"))
+            + (e.JoinUrl.Length > 0 ? " · " + L("katılmak için tıklayın") : e.Location.Length > 0 ? $" · {e.Location}" : ""),
+            "", null)
+        {
+            Click = e.JoinUrl.Length > 0 ? () => OpenUrl(e.JoinUrl) : null
+        }, urgent: true);
+
+        // Mikrofon kısayolu (Ctrl + Alt + M)
+        _micHotkey.Pressed += ToggleMic;
 
         CheckJustUpdated();
 
@@ -158,6 +170,8 @@ public sealed class AppHost
         Brightness.Start();
         Power.Start();
         Privacy.SetEnabled(Settings.ShowPrivacyDots);
+        Audio.Start();
+        _micHotkey.SetEnabled(Settings.MicHotkey);
         Clipboard.SetEnabled(Settings.ClipboardHistory);
         await Media.StartAsync();
         _ = Calendar.StartAsync();
@@ -189,6 +203,33 @@ public sealed class AppHost
         // Sessizdeyken çentikte bildirim açılmaz (güncelleme gibi acil olanlar hariç)
         if (!urgent && Settings.MuteNotifications) return;
         foreach (var w in _windows.Values) w.Peek(item, urgent);
+    }
+
+    /// <summary>Mikrofonu sessize alır / açar ve çentikte gösterir (kısayol ya da Denetim sekmesinden).</summary>
+    public void ToggleMic()
+    {
+        if (!Audio.ToggleMic())
+        {
+            ShowOsd(new PeekItem(L("Mikrofon bulunamadı"), L("Bağlı bir mikrofon yok"), "", null));
+            return;
+        }
+        ShowOsd(Audio.MicMuted
+            ? new PeekItem(L("Mikrofon kapalı"), L("Tüm uygulamalarda sessiz · Ctrl+Alt+M ile aç"), "", null)
+            : new PeekItem(L("Mikrofon açık"), L("Sizi yeniden duyabiliyorlar"), "", null));
+    }
+
+    /// <summary>Uçak modunu değiştirir ve sonucu çentikte gösterir.</summary>
+    public async Task ToggleAirplaneAsync()
+    {
+        bool ok = await Airplane.ToggleAsync();
+        if (!ok)
+        {
+            ShowOsd(new PeekItem(L("Uçak modu değiştirilemedi"), L("Ayarlar açılıyor"), "", null));
+            OpenUrl("ms-settings:network-airplanemode");
+            return;
+        }
+        ShowOsd(new PeekItem(Airplane.On ? L("Uçak modu açık") : L("Uçak modu kapalı"),
+            Airplane.On ? L("Wi-Fi, Bluetooth ve mobil bağlantı kapalı") : L("Kablosuz bağlantılar açık"), "", null));
     }
 
     /// <summary>Ses / parlaklık göstergesi: bildirim sessizdeyken de görünür, öncekinin yerine hemen geçer.</summary>
@@ -303,6 +344,7 @@ public sealed class AppHost
         RebuildWindows();
         Privacy.SetEnabled(Settings.ShowPrivacyDots);
         Clipboard.SetEnabled(Settings.ClipboardHistory);
+        _micHotkey.SetEnabled(Settings.MicHotkey);
         if (Settings.AutoUpdate && !Updates.IsStoreVersion && !_updateTimer.IsEnabled) _updateTimer.Start();
 
         // Hava durumu: açıldıysa ya da konum değiştiyse hemen yenile
@@ -424,5 +466,8 @@ public sealed class AppHost
         Volume.Dispose();
         Brightness.Dispose();
         Clipboard.Dispose();
+        Audio.Dispose();
+        _micHotkey.Dispose();
+        if (KeepAwake.Active) KeepAwake.Stop();
     }
 }

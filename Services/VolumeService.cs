@@ -30,7 +30,7 @@ public sealed class VolumeService : IDisposable
     {
         try
         {
-            _enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+            _enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"))!)!;
             _enumerator.RegisterEndpointNotificationCallback(_deviceCallback);
             Attach();
         }

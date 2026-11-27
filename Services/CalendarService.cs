@@ -13,6 +13,11 @@ public sealed class CalendarEvent
     public DateTime Start { get; init; }
     public DateTime End { get; init; }
     public bool AllDay { get; init; }
+    /// <summary>Teams / Zoom / Meet / Webex toplantı bağlantısı (yoksa boş).</summary>
+    public string JoinUrl { get; init; } = "";
+    public System.Windows.Visibility JoinVisibility =>
+        JoinUrl.Length > 0 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+    public string JoinLabel => L("Katıl");
 
     public string When
     {
@@ -76,7 +81,8 @@ public sealed class CalendarService
             if (_store == null) throw new UnauthorizedAccessException();
             var options = new FindAppointmentsOptions { MaxCount = 12, IncludeHidden = false };
             foreach (var p in new[] { AppointmentProperties.Subject, AppointmentProperties.Location,
-                         AppointmentProperties.StartTime, AppointmentProperties.Duration, AppointmentProperties.AllDay })
+                         AppointmentProperties.StartTime, AppointmentProperties.Duration, AppointmentProperties.AllDay,
+                         AppointmentProperties.Details, AppointmentProperties.OnlineMeetingLink })
                 options.FetchProperties.Add(p);
 
             var start = DateTime.Today;
@@ -90,6 +96,7 @@ public sealed class CalendarService
                     Start = a.StartTime.LocalDateTime,
                     End = a.StartTime.LocalDateTime + a.Duration,
                     AllDay = a.AllDay,
+                    JoinUrl = FindMeetingLink(a),
                 })
                 .Where(e => e.End > DateTime.Now)
                 .OrderBy(e => e.AllDay ? e.Start.Date : e.Start)
@@ -110,6 +117,26 @@ public sealed class CalendarService
             if (ex is not UnauthorizedAccessException) App.LogError(ex);
         }
         Changed?.Invoke();
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex MeetingLink = new(
+        @"https://(?:teams\.microsoft\.com/l/meetup-join/|teams\.live\.com/meet/|[\w.-]*zoom\.us/(?:j|w|my)/|meet\.google\.com/|[\w.-]*webex\.com/|[\w.-]*gotomeeting\.com/join/)[^\s""'<>)\]]+",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Etkinliğin çevrim içi toplantı bağlantısı: önce Windows'un alanı, sonra konum ve açıklama.</summary>
+    private static string FindMeetingLink(Appointment a)
+    {
+        try
+        {
+            foreach (var text in new[] { a.OnlineMeetingLink, a.Location, a.Details })
+            {
+                if (string.IsNullOrEmpty(text)) continue;
+                var m = MeetingLink.Match(text);
+                if (m.Success) return System.Net.WebUtility.HtmlDecode(m.Value);
+            }
+        }
+        catch { }
+        return "";
     }
 
     public bool NoAccess => Problem == L("Takvime erişim izni yok");

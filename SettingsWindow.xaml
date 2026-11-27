@@ -820,6 +820,31 @@
                             </StackPanel>
                         </Border>
 
+                        <TextBlock Text="Mikrofon" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
+                        <Border Style="{StaticResource Card}">
+                            <CheckBox x:Name="MicHotkeyToggle" Style="{StaticResource Toggle}" Margin="0,12" Click="Toggle_Click">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Mikrofon kısayolu" Style="{StaticResource RowTitle}" VerticalAlignment="Center"
+                                                   Margin="0,0,10,0"/>
+                                        <Border Style="{StaticResource KeyCap}">
+                                            <TextBlock Text="Ctrl" FontSize="11" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock Text="+" Foreground="{DynamicResource Sub}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource KeyCap}">
+                                            <TextBlock Text="Alt" FontSize="11" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <TextBlock Text="+" Foreground="{DynamicResource Sub}" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource KeyCap}">
+                                            <TextBlock Text="M" FontSize="11" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="Mikrofonu Teams, Zoom, Discord dahil tüm uygulamalarda tek tuşla sessize alır / açar; kapalıyken çentikte kırmızı mikrofon görünür"
+                                               Style="{StaticResource RowDesc}" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </CheckBox>
+                        </Border>
+
                         <TextBlock Text="Göstergeler" Style="{StaticResource GroupTitle}" Margin="4,10,0,8"/>
                         <Border Style="{StaticResource Card}">
                             <StackPanel>

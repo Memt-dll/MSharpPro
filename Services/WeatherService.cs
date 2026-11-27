@@ -196,7 +196,7 @@ public sealed class WeatherService
         0 => (day ? WeatherKind.Sun : WeatherKind.Moon, day ? L("Güneşli") : (Loc.English ? "Clear" : "Açık")),
         1 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, L("Az bulutlu")),
         2 => (day ? WeatherKind.PartlySun : WeatherKind.PartlyMoon, L("Parçalı bulutlu")),
-        3 => (WeatherKind.Cloud, L("Kapalı")),
+        3 => (WeatherKind.Cloud, Loc.English ? "Overcast" : "Kapalı"),
         45 or 48 => (WeatherKind.Fog, L("Sisli")),
         >= 51 and <= 57 => (WeatherKind.Drizzle, L("Çisenti")),
         >= 61 and <= 67 => (WeatherKind.Rain, L("Yağmurlu")),

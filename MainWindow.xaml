@@ -36,6 +36,87 @@
             </Setter>
         </Style>
 
+        <!-- Denetim sekmesi: açılıp kapanan kare düğme -->
+        <Style x:Key="ToggleTile" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#14FFFFFF"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Height" Value="46"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="14" Padding="10,0">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- İnce ses kaydırıcısı -->
+        <Style x:Key="ThinSliderFill" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Height="4" CornerRadius="2" Background="#E9E8E1"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ThinSliderEmpty" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ThinSlider" TargetType="Slider">
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="IsMoveToPointEnabled" Value="True"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="SmallChange" Value="2"/>
+            <Setter Property="LargeChange" Value="10"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid Height="18" Background="Transparent">
+                            <Border Height="4" CornerRadius="2" Background="#24FFFFFF" VerticalAlignment="Center"/>
+                            <Track x:Name="PART_Track">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource ThinSliderFill}"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge" Style="{StaticResource ThinSliderEmpty}"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Ellipse Width="12" Height="12" Fill="White"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="Caption" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="Foreground" Value="#80FFFFFF"/>
@@ -121,6 +202,13 @@
                                  Margin="0,0,5,0" Visibility="Collapsed" ToolTip="Mikrofon kullanımda"/>
                         <Ellipse x:Name="CamDot" Width="6" Height="6" Fill="#3DDC84" VerticalAlignment="Center"
                                  Margin="0,0,7,0" Visibility="Collapsed" ToolTip="Kamera kullanımda"/>
+                        <!-- Mikrofon sessizde (kırmızı) / bilgisayar uyumuyor -->
+                        <TextBlock x:Name="CompactMicOff" Text="&#xE720;" FontFamily="{StaticResource Icons}" FontSize="11"
+                                   Foreground="#FF5A5F" VerticalAlignment="Center" Margin="0,0,7,0" Visibility="Collapsed"
+                                   ToolTip="Mikrofon kapalı"/>
+                        <TextBlock x:Name="CompactAwake" Text="&#xE706;" FontFamily="{StaticResource Icons}" FontSize="11"
+                                   Foreground="#FFD27A" VerticalAlignment="Center" Margin="0,0,7,0" Visibility="Collapsed"
+                                   ToolTip="Bilgisayar uyumayacak"/>
                         <TextBlock x:Name="CompactMuted" Text="&#xE7ED;" FontFamily="{StaticResource Icons}" FontSize="11"
                                    Foreground="#FFB86B" VerticalAlignment="Center" Margin="0,0,7,0" Visibility="Collapsed"/>
                         <StackPanel x:Name="CompactTimer" Orientation="Horizontal" VerticalAlignment="Center"
@@ -219,6 +307,10 @@
                                              Checked="Tab_Checked" ToolTip="Müzik">
                                     <TextBlock Text="&#xEC4F;"/>
                                 </RadioButton>
+                                <RadioButton x:Name="TabControl" Style="{StaticResource IconTab}" Checked="Tab_Checked"
+                                             Tag="control" ToolTip="Denetim">
+                                    <TextBlock Text="&#xE9E9;"/>
+                                </RadioButton>
                                 <RadioButton x:Name="TabLyrics" Style="{StaticResource IconTab}" Checked="Tab_Checked"
                                              Tag="lyrics" ToolTip="Şarkı sözleri">
                                     <TextBlock Text="&#xE8D2;"/>
@@ -249,7 +341,7 @@
                                 </RadioButton>
                                 <RadioButton x:Name="TabNotif" Style="{StaticResource IconTab}" Checked="Tab_Checked"
                                              Tag="notif" ToolTip="Bildirimler">
-                                    <Grid Width="34" Height="28">
+                                    <Grid Width="32" Height="28">
                                         <TextBlock Text="&#xEA8F;" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         <Border x:Name="NotifBadge" Background="#FF4D6D" CornerRadius="7" MinWidth="14" Height="14"
                                                 Padding="3,0" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,2,0"
@@ -507,6 +599,127 @@
                             </StackPanel>
                         </Grid>
 
+                        <!-- Denetim: hızlı düğmeler, ses çıkışı, uygulama sesleri -->
+                        <Grid x:Name="ControlPanel" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="168"/>
+                                <ColumnDefinition/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <Button x:Name="MicTile" Style="{StaticResource ToggleTile}" Click="MicTile_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock x:Name="MicTileIcon" Text="&#xE720;" FontFamily="{StaticResource Icons}" FontSize="15"
+                                                   VerticalAlignment="Center" Margin="2,0,10,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Mikrofon" FontSize="12" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="MicTileState" FontSize="10.5" Opacity="0.75"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="AwakeTile" Style="{StaticResource ToggleTile}" Click="AwakeTile_Click"
+                                        ToolTip="Bilgisayarın uyumasını ve ekranın kararmasını engeller">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE706;" FontFamily="{StaticResource Icons}" FontSize="15"
+                                                   VerticalAlignment="Center" Margin="2,0,10,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Uyutma" FontSize="12" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="AwakeTileState" FontSize="10.5" Opacity="0.75"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="AirplaneTile" Style="{StaticResource ToggleTile}" Click="AirplaneTile_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE709;" FontFamily="{StaticResource Icons}" FontSize="15"
+                                                   VerticalAlignment="Center" Margin="2,0,10,0"/>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="Uçak modu" FontSize="12" FontWeight="SemiBold"/>
+                                            <TextBlock x:Name="AirplaneTileState" FontSize="10.5" Opacity="0.75"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <Grid Grid.Column="1" Margin="14,0,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Ses çıkışı" Style="{StaticResource Caption}" Margin="2,0,0,5"/>
+                                <!-- Parçalı seçici: aygıtlar genişliği eşit paylaşır, uzun adlar "…" ile kısalır -->
+                                <Border Grid.Row="1" Background="#14FFFFFF" CornerRadius="13" Padding="3">
+                                    <ItemsControl x:Name="OutputList">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <UniformGrid Rows="1"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Click="Output_Click" Cursor="Hand" Focusable="False" ToolTip="{Binding Name}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="bd" Background="Transparent" CornerRadius="10" Height="26"
+                                                                    Padding="8,0">
+                                                                <Grid VerticalAlignment="Center">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                        <ColumnDefinition/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBlock x:Name="ic" Text="{Binding Glyph}" FontFamily="{StaticResource Icons}" Foreground="#CCFFFFFF"
+                                                                               FontSize="11" VerticalAlignment="Center" Margin="0,1,6,0"/>
+                                                                    <TextBlock x:Name="tx" Grid.Column="1" Text="{Binding ShortName}" FontSize="11" Foreground="#CCFFFFFF"
+                                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                                </Grid>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="bd" Property="Background" Value="#1AFFFFFF"/>
+                                                                    <Setter TargetName="ic" Property="Foreground" Value="White"/>
+                                                                    <Setter TargetName="tx" Property="Foreground" Value="White"/>
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding IsDefault}" Value="True">
+                                                                    <Setter TargetName="bd" Property="Background" Value="#F2F1EB"/>
+                                                                    <Setter TargetName="ic" Property="Foreground" Value="#222622"/>
+                                                                    <Setter TargetName="tx" Property="Foreground" Value="#222622"/>
+                                                                    <Setter TargetName="tx" Property="FontWeight" Value="SemiBold"/>
+                                                                </DataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+                                <TextBlock Grid.Row="2" Text="Uygulama sesleri" Style="{StaticResource Caption}" Margin="2,10,0,3"/>
+                                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Hidden">
+                                    <ItemsControl x:Name="AppVolumeList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Height="24">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="104"/>
+                                                        <ColumnDefinition/>
+                                                        <ColumnDefinition Width="28"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}"/>
+                                                    <Slider Grid.Column="1" Style="{StaticResource ThinSlider}" Margin="6,0"
+                                                            VerticalAlignment="Center" Value="{Binding Level, Mode=TwoWay}"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding LevelText}" FontSize="10.5"
+                                                               Foreground="#99FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock x:Name="AppVolumeEmpty" Grid.Row="3" Text="Şu an ses çıkaran uygulama yok"
+                                           Foreground="#80FFFFFF" FontSize="11.5" Margin="2,4,0,0"/>
+                            </Grid>
+                        </Grid>
+
                         <!-- Şarkı sözleri: çalan satır ortada, öncesi / sonrası soluk -->
                         <Grid x:Name="LyricsPanel" Visibility="Collapsed">
                             <StackPanel x:Name="LyricsSynced" VerticalAlignment="Center">
@@ -614,11 +827,33 @@
                                                         <TextBlock Text="{Binding Location}" FontSize="10.5" Foreground="#73FFFFFF"
                                                                    TextTrimming="CharacterEllipsis" Visibility="{Binding LocationVisibility}"/>
                                                     </StackPanel>
-                                                    <Border Grid.Column="2" Background="#F2F1EB" CornerRadius="9" Padding="7,1"
-                                                            VerticalAlignment="Center" Visibility="{Binding NowVisibility}">
-                                                        <TextBlock Text="{Binding NowLabel}" FontSize="10" FontWeight="SemiBold"
-                                                                   Foreground="#222622"/>
-                                                    </Border>
+                                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Border Background="#33FFFFFF" CornerRadius="9" Padding="7,1"
+                                                                VerticalAlignment="Center" Visibility="{Binding NowVisibility}">
+                                                            <TextBlock Text="{Binding NowLabel}" FontSize="10" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <Button Style="{StaticResource PillBtn}" Margin="6,0,0,0" Click="Join_Click"
+                                                                Visibility="{Binding JoinVisibility}" ToolTip="{Binding JoinUrl}">
+                                                            <Button.Template>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border x:Name="bd" Background="#F2F1EB" CornerRadius="10" Padding="10,3">
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock Text="&#xE714;" FontFamily="{StaticResource Icons}"
+                                                                                       FontSize="10" Foreground="#222622"
+                                                                                       VerticalAlignment="Center" Margin="0,1,5,0"/>
+                                                                            <TextBlock Text="{Binding JoinLabel}" FontSize="11"
+                                                                                       FontWeight="SemiBold" Foreground="#222622"/>
+                                                                        </StackPanel>
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="bd" Property="Opacity" Value="0.85"/>
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Button.Template>
+                                                        </Button>
+                                                    </StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>

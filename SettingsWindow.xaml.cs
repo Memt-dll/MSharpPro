@@ -226,6 +226,7 @@ public partial class SettingsWindow : Window
         CalendarToggle.IsChecked = _settings.CalendarReminders;
         LyricsToggle.IsChecked = _settings.LyricsEnabled;
         ClipToggle.IsChecked = _settings.ClipboardHistory;
+        MicHotkeyToggle.IsChecked = _settings.MicHotkey;
         FocusCombo.SelectedItem = _settings.PomodoroFocus;
         BreakCombo.SelectedItem = _settings.PomodoroBreak;
         BuildTabsList();
@@ -339,6 +340,7 @@ public partial class SettingsWindow : Window
         else if (sender == CalendarToggle) _settings.CalendarReminders = CalendarToggle.IsChecked == true;
         else if (sender == LyricsToggle) _settings.LyricsEnabled = LyricsToggle.IsChecked == true;
         else if (sender == ClipToggle) _settings.ClipboardHistory = ClipToggle.IsChecked == true;
+        else if (sender == MicHotkeyToggle) _settings.MicHotkey = MicHotkeyToggle.IsChecked == true;
         Save();
         LoadValues();
     }
@@ -360,6 +362,7 @@ public partial class SettingsWindow : Window
     private static readonly Dictionary<string, (string Glyph, string Name)> TabInfo = new()
     {
         ["media"] = ("", "Müzik"),
+        ["control"] = ("", "Denetim"),
         ["lyrics"] = ("", "Şarkı sözleri"),
         ["bt"] = ("", "Bluetooth"),
         ["notif"] = ("", "Bildirimler"),

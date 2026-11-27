@@ -32,7 +32,7 @@ public sealed class AppSettings
 
     /// <summary>Çentik sekmelerinin kimlikleri, varsayılan sırayla.</summary>
     public static readonly string[] AllTabs =
-        { "media", "lyrics", "bt", "notif", "weather", "timer", "calendar", "clipboard", "shelf", "system" };
+        { "media", "control", "lyrics", "bt", "notif", "weather", "timer", "calendar", "clipboard", "shelf", "system" };
     /// <summary>Sekmelerin sırası (eksik olanlar sona eklenir).</summary>
     public List<string> TabOrder { get; set; } = AllTabs.ToList();
     /// <summary>Gizlenen sekmeler.</summary>
@@ -48,6 +48,8 @@ public sealed class AppSettings
     public bool CalendarReminders { get; set; } = true;
     /// <summary>Kopyalanan metinleri (yalnızca bellekte) listele.</summary>
     public bool ClipboardHistory { get; set; } = true;
+    /// <summary>Ctrl + Alt + M: mikrofonu her uygulamada sessize al / aç.</summary>
+    public bool MicHotkey { get; set; } = true;
     /// <summary>Şarkı sözlerini LRCLIB'den al.</summary>
     public bool LyricsEnabled { get; set; } = true;
     /// <summary>Çentikte açılır bildirimi gösterilmeyen uygulamalar (bildirimleri yine listede birikir).</summary>
@@ -123,7 +125,9 @@ public sealed class AppSettings
         if (Theme != ThemeLight && Theme != ThemeDark) Theme = ThemeSystem;
         if (Language != "tr" && Language != "en") Language = LangSystem;
         TabOrder = (TabOrder ?? new()).Where(AllTabs.Contains).Distinct().ToList();
-        TabOrder.AddRange(AllTabs.Where(t => !TabOrder.Contains(t)));
+        // Yeni sürümle gelen sekmeler varsayılan yerlerine eklenir
+        foreach (var (t, i) in AllTabs.Select((t, i) => (t, i)))
+            if (!TabOrder.Contains(t)) TabOrder.Insert(Math.Min(i, TabOrder.Count), t);
         HiddenTabs = (HiddenTabs ?? new()).Where(AllTabs.Contains).Distinct().ToList();
         MutedApps = (MutedApps ?? new()).Where(a => !string.IsNullOrWhiteSpace(a)).Distinct().ToList();
         PomodoroFocus = Math.Clamp(PomodoroFocus, 1, 120);
@@ -185,6 +189,7 @@ public sealed class AppSettings
         ShowPrivacyDots = d.ShowPrivacyDots;
         CalendarReminders = d.CalendarReminders;
         ClipboardHistory = d.ClipboardHistory;
+        MicHotkey = d.MicHotkey;
         LyricsEnabled = d.LyricsEnabled;
         MutedApps = d.MutedApps;
         PomodoroFocus = d.PomodoroFocus;
