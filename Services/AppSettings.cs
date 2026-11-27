@@ -20,6 +20,12 @@ public sealed class AppSettings
     public const string ShapeIsland = "Island";
     /// <summary>"Notch": ekranın üstüne yapışık çentik · "Island": iPhone'daki gibi yüzen oval hap.</summary>
     public string Shape { get; set; } = ShapeNotch;
+    public const string ThemeSystem = "System";
+    public const string ThemeLight = "Light";
+    public const string ThemeDark = "Dark";
+    /// <summary>Ayarlar penceresinin teması: "System" (Windows'taki açık/koyu mod), "Light" ya da "Dark".</summary>
+    public string Theme { get; set; } = ThemeSystem;
+
     /// <summary>En son çalışan sürüm: güncellemeden sonra "güncellendi" bildirimi göstermek için.</summary>
     public string LastVersion { get; set; } = "";
 
@@ -69,6 +75,7 @@ public sealed class AppSettings
                     if (string.IsNullOrWhiteSpace(s.FontFamily)) s.FontFamily = DefaultFont;
                     if (string.IsNullOrWhiteSpace(s.Display)) s.Display = DisplayPrimary;
                     if (s.Shape != ShapeIsland) s.Shape = ShapeNotch;
+                    if (s.Theme != ThemeLight && s.Theme != ThemeDark) s.Theme = ThemeSystem;
                     return s;
                 }
             }
@@ -102,6 +109,7 @@ public sealed class AppSettings
         Shape = d.Shape;
         ShowClock = d.ShowClock;
         WeatherEnabled = d.WeatherEnabled;
+        Theme = d.Theme;
         // Seçilen şehir sıfırlanmaz: kullanıcıyı yeniden aratmamak için korunur
         Save();
     }
